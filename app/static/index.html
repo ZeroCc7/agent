@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 照片美化</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>AI 照片美化</h1>
+      <p>上传照片，轻松美化日常生活照片</p>
+    </div>
+  </header>
+
+  <main>
+    <!-- Upload section -->
+    <section id="upload-section">
+      <div id="drop-zone">
+        <div class="drop-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <p class="drop-title">拖拽照片到此处</p>
+        <p class="drop-sub">支持 JPG、PNG、WebP，最大 50MB</p>
+        <button class="btn-primary" onclick="document.getElementById('file-input').click()">选择照片</button>
+        <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" style="display:none">
+      </div>
+    </section>
+
+    <!-- Editor section (shown after upload) -->
+    <section id="editor-section" class="hidden">
+      <div class="editor-layout">
+
+        <!-- Preview panels -->
+        <div class="preview-area">
+          <div class="preview-panel">
+            <div class="panel-label">原图</div>
+            <div class="img-wrap">
+              <img id="original-img" alt="原图">
+            </div>
+            <button class="btn-ghost reupload-btn" onclick="reupload()">重新上传</button>
+          </div>
+          <div class="preview-panel">
+            <div class="panel-label">效果图</div>
+            <div class="img-wrap result-wrap">
+              <img id="result-img" alt="效果图">
+              <div id="result-placeholder" class="result-placeholder">调整参数后点击「应用」</div>
+            </div>
+            <button id="download-btn" class="btn-primary hidden" onclick="downloadResult()">下载图片</button>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls-panel">
+          <div class="tabs">
+            <button class="tab active" data-tab="manual" onclick="switchTab(this,'manual')">手动调整</button>
+            <button class="tab" data-tab="ai" onclick="switchTab(this,'ai')">AI 智能编辑</button>
+          </div>
+
+          <!-- Manual controls -->
+          <div id="panel-manual" class="tab-panel">
+            <div class="control-group">
+              <h4>基础调整</h4>
+              <div class="slider-row">
+                <label>亮度</label>
+                <input type="range" id="brightness" min="-60" max="60" value="0" oninput="updateLabel(this)">
+                <span class="slider-val" id="brightness-val">0</span>
+              </div>
+              <div class="slider-row">
+                <label>对比度</label>
+                <input type="range" id="contrast" min="-60" max="60" value="0" oninput="updateLabel(this)">
+                <span class="slider-val" id="contrast-val">0</span>
+              </div>
+              <div class="slider-row">
+                <label>饱和度</label>
+                <input type="range" id="saturation" min="-60" max="60" value="0" oninput="updateLabel(this)">
+                <span class="slider-val" id="saturation-val">0</span>
+              </div>
+              <div class="slider-row">
+                <label>锐度</label>
+                <input type="range" id="sharpness" min="-60" max="60" value="0" oninput="updateLabel(this)">
+                <span class="slider-val" id="sharpness-val">0</span>
+              </div>
+              <div class="slider-row">
+                <label>色温 <small>冷↔暖</small></label>
+                <input type="range" id="colortemp" min="-100" max="100" value="0" oninput="updateLabel(this)">
+                <span class="slider-val" id="colortemp-val">0</span>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <h4>人像美化</h4>
+              <div class="toggle-row">
+                <label class="toggle-label">
+                  <input type="checkbox" id="smooth-skin" onchange="toggleSection('smooth-options', this)">
+                  <span>磨皮</span>
+                </label>
+              </div>
+              <div id="smooth-options" class="sub-options hidden">
+                <div class="slider-row">
+                  <label>程度</label>
+                  <input type="range" id="smooth-level" min="0" max="100" value="40" oninput="updateLabel(this)">
+                  <span class="slider-val" id="smooth-level-val">40</span>
+                </div>
+              </div>
+              <div class="toggle-row">
+                <label class="toggle-label">
+                  <input type="checkbox" id="brighten-skin">
+                  <span>提亮肤色</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <h4>背景处理</h4>
+              <div class="select-row">
+                <label>效果</label>
+                <select id="bg-action">
+                  <option value="none">不处理</option>
+                  <option value="blur">虚化背景</option>
+                  <option value="remove">去除背景（需要 rembg）</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="action-row">
+              <button class="btn-primary" onclick="applyManualEdit()">应用效果</button>
+              <button class="btn-ghost" onclick="resetControls()">重置</button>
+            </div>
+          </div>
+
+          <!-- AI controls -->
+          <div id="panel-ai" class="tab-panel hidden">
+            <div class="ai-intro">
+              <p>用自然语言描述想要的效果，<strong>万象2.7</strong> 大模型会重新生图，约需 20-40 秒。</p>
+              <div class="ai-examples">
+                <span class="example-tag" onclick="setExample(this)">让照片更通透</span>
+                <span class="example-tag" onclick="setExample(this)">磨皮美白，背景虚化</span>
+                <span class="example-tag" onclick="setExample(this)">整体色调偏暖</span>
+                <span class="example-tag" onclick="setExample(this)">增加对比度，更有质感</span>
+              </div>
+            </div>
+            <textarea id="ai-instruction" placeholder="例如：让照片更亮更通透，肤色自然一点..." rows="4"></textarea>
+            <button class="btn-primary" onclick="applyAIEdit()">AI 美化</button>
+            <div id="ai-explanation" class="ai-explanation hidden"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Loading overlay -->
+  <div id="loading" class="loading hidden">
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <p id="loading-text">处理中...</p>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

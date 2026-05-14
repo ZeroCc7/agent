@@ -1,0 +1,39 @@
+{
+  "version": "2.0",
+  "description": "AI Photo Editor — Runtime Environment",
+  "startup": {
+    "command": "uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "readiness": {
+      "type": "http",
+      "url": "http://localhost:8000/",
+      "timeout_seconds": 30
+    }
+  },
+  "services": [],
+  "environment_variables": {
+    "required": [
+      {
+        "name": "ANTHROPIC_API_KEY",
+        "description": "Claude API key — needed for /api/edit/ai endpoint. Get at console.anthropic.com",
+        "sensitive": true
+      }
+    ],
+    "optional": [
+      {
+        "name": "HOST",
+        "description": "Server bind address",
+        "default": "0.0.0.0"
+      },
+      {
+        "name": "PORT",
+        "description": "Server port",
+        "default": "8000"
+      }
+    ]
+  },
+  "notes": [
+    "uploads/ and outputs/ directories are auto-created at startup",
+    "Background removal requires: pip install rembg onnxruntime (downloads ~170MB model on first use)",
+    "All image edits are non-destructive — originals in uploads/ are never modified"
+  ]
+}

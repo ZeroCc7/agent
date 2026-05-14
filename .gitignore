@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+uploads/
+outputs/
+harness/.analysis/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+.pytest_cache/
+*.onnx
