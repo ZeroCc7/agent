@@ -6,5 +6,5 @@ opencv-python-headless>=4.9.0
 dashscope>=1.20.0
 numpy>=1.26.0
 python-dotenv>=1.0.0
-# Optional — enables AI background removal (downloads ~170MB model on first use):
+# Optional background removal (downloads ~170MB model on first use):
 # pip install rembg onnxruntime

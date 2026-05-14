@@ -6,10 +6,22 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from PIL import Image
 
 from app.core.background import apply_background
+from app.core.curve_processor import apply_curves
+from app.core.image_analyzer import analyze_photo
 from app.core.image_gen import edit_image
 from app.core.image_processor import apply_basic_edits
+from app.core.param_advisor import suggest_params
 from app.core.portrait import apply_portrait
-from app.types.models import AIEditRequest, EditResponse, ManualEditRequest
+from app.core.prompt_store import (
+    create_prompt, delete_prompt, get_categories,
+    list_prompts, update_prompt,
+)
+from app.types.models import (
+    AIEditRequest, AnalyzeRequest, AnalyzeResponse,
+    CurrentParams, CurveParams, EditResponse, ManualEditRequest, Prompt,
+    PromptCreate, PromptUpdate, StyleSuggestion,
+    SuggestRequest, SuggestResponse,
+)
 
 router = APIRouter()
 
@@ -42,6 +54,24 @@ async def upload_image(file: UploadFile = File(...)):
     return {"filename": filename, "width": width, "height": height}
 
 
+@router.post("/analyze", response_model=AnalyzeResponse)
+async def analyze(request: AnalyzeRequest):
+    src = UPLOAD_DIR / request.filename
+    if not src.exists():
+        raise HTTPException(404, "图片不存在，请重新上传")
+
+    try:
+        raw = await asyncio.to_thread(analyze_photo, src)
+        suggestions = [StyleSuggestion(**item) for item in raw]
+        return AnalyzeResponse(suggestions=suggestions)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"照片分析失败：{e}")
+
+
 @router.post("/edit/manual", response_model=EditResponse)
 async def manual_edit(request: ManualEditRequest):
     src = UPLOAD_DIR / request.filename
@@ -54,6 +84,7 @@ async def manual_edit(request: ManualEditRequest):
             result = apply_basic_edits(result, request.edit_params)
             result = apply_portrait(result, request.portrait_params)
             result = apply_background(result, request.background_params)
+            result = apply_curves(result, request.curve_params)
 
             out_name = f"edited_{uuid.uuid4().hex[:10]}.jpg"
             out_path = OUTPUT_DIR / out_name
@@ -101,3 +132,76 @@ async def ai_edit(request: AIEditRequest):
         raise HTTPException(500, str(e))
     except Exception as e:
         raise HTTPException(500, f"AI 生图失败：{e}")
+
+
+@router.post("/edit/suggest", response_model=SuggestResponse)
+async def suggest(request: SuggestRequest):
+    if not request.instruction.strip():
+        raise HTTPException(400, "请输入描述")
+
+    try:
+        current_dict = dict(request.current_params)
+        raw = await asyncio.to_thread(suggest_params, request.instruction, current_dict)
+
+        # Merge LLM output back into CurrentParams (ignore unknown keys)
+        merged = {**current_dict, **{k: v for k, v in raw.items() if k in current_dict}}
+        explanation = raw.get("explanation", "")
+
+        # Parse optional curve_params from LLM output
+        curve_params = None
+        raw_curves = raw.get("curve_params")
+        if isinstance(raw_curves, dict):
+            try:
+                curve_params = CurveParams(**raw_curves)
+            except Exception:
+                curve_params = None
+
+        return SuggestResponse(
+            params=CurrentParams(**merged),
+            explanation=explanation,
+            curve_params=curve_params,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"参数建议失败：{e}")
+
+
+# ── Prompt library ────────────────────────────────────────────────────
+
+@router.get("/prompts")
+async def prompts_list(search: str = "", category: str = ""):
+    return {
+        "prompts": list_prompts(search, category),
+        "categories": get_categories(),
+    }
+
+
+@router.post("/prompts", response_model=Prompt)
+async def prompts_create(data: PromptCreate):
+    if not data.name.strip():
+        raise HTTPException(400, "名称不能为空")
+    if not data.prompt.strip():
+        raise HTTPException(400, "提示词内容不能为空")
+    return create_prompt(data.name, data.prompt, data.category, data.tags)
+
+
+@router.put("/prompts/{prompt_id}", response_model=Prompt)
+async def prompts_update(prompt_id: str, data: PromptUpdate):
+    item = update_prompt(
+        prompt_id,
+        name=data.name,
+        prompt=data.prompt,
+        category=data.category,
+        tags=data.tags,
+    )
+    if item is None:
+        raise HTTPException(404, "提示词不存在")
+    return item
+
+
+@router.delete("/prompts/{prompt_id}")
+async def prompts_delete(prompt_id: str):
+    if not delete_prompt(prompt_id):
+        raise HTTPException(404, "提示词不存在")
+    return {"ok": True}

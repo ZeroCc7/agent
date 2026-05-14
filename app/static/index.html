@@ -9,8 +9,14 @@
 <body>
   <header>
     <div class="header-inner">
-      <h1>AI 照片美化</h1>
-      <p>上传照片，轻松美化日常生活照片</p>
+      <div>
+        <h1>AI 照片美化</h1>
+        <p>上传照片，轻松美化日常生活照片</p>
+      </div>
+      <button class="btn-lib" onclick="openPromptLibrary()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        提示词库
+      </button>
     </div>
   </header>
 
@@ -128,6 +134,40 @@
               </div>
             </div>
 
+            <!-- AI parameter suggestion -->
+            <div class="control-group">
+              <div class="assist-header">
+                <h4>AI 解读参数</h4>
+                <span class="assist-sub">语言描述 → 自动调整滑块</span>
+              </div>
+              <div class="assist-row">
+                <input type="text" id="assist-input"
+                  placeholder="如：再亮一点，色调偏暖，磨皮..."
+                  onkeydown="if(event.key==='Enter')getSuggestion()">
+                <button class="btn-assist" id="assist-btn" onclick="getSuggestion()">解读</button>
+              </div>
+              <div id="assist-explanation" class="assist-explanation hidden"></div>
+            </div>
+
+            <!-- Color curve editor -->
+            <div class="control-group curve-section">
+              <h4>色彩曲线</h4>
+              <div class="curve-channel-tabs">
+                <button class="curve-tab active" data-ch="rgb" onclick="switchCurveTab(this,'rgb')">RGB</button>
+                <button class="curve-tab" data-ch="r" onclick="switchCurveTab(this,'r')">R</button>
+                <button class="curve-tab" data-ch="g" onclick="switchCurveTab(this,'g')">G</button>
+                <button class="curve-tab" data-ch="b" onclick="switchCurveTab(this,'b')">B</button>
+              </div>
+              <div class="curve-canvas-wrap">
+                <canvas id="curve-canvas" width="260" height="260"></canvas>
+              </div>
+              <p class="curve-hint">单击添加控制点，双击删除，拖拽调整</p>
+              <div class="curve-actions">
+                <button class="btn-ghost small" onclick="resetCurrentCurve()">重置当前</button>
+                <button class="btn-ghost small" onclick="resetAllCurves()">全部重置</button>
+              </div>
+            </div>
+
             <div class="action-row">
               <button class="btn-primary" onclick="applyManualEdit()">应用效果</button>
               <button class="btn-ghost" onclick="resetControls()">重置</button>
@@ -136,17 +176,37 @@
 
           <!-- AI controls -->
           <div id="panel-ai" class="tab-panel hidden">
-            <div class="ai-intro">
-              <p>用自然语言描述想要的效果，<strong>万象2.7</strong> 大模型会重新生图，约需 20-40 秒。</p>
-              <div class="ai-examples">
-                <span class="example-tag" onclick="setExample(this)">让照片更通透</span>
-                <span class="example-tag" onclick="setExample(this)">磨皮美白，背景虚化</span>
-                <span class="example-tag" onclick="setExample(this)">整体色调偏暖</span>
-                <span class="example-tag" onclick="setExample(this)">增加对比度，更有质感</span>
-              </div>
+
+            <!-- Step 1: analyze trigger -->
+            <div id="ai-analyze-area">
+              <p class="ai-hint">AI 分析照片内容，自动生成修图风格建议；也可直接在下方输入描述。</p>
+              <button class="btn-outline w-full" id="analyze-btn" onclick="analyzePhoto()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                分析照片，生成风格建议
+              </button>
             </div>
-            <textarea id="ai-instruction" placeholder="例如：让照片更亮更通透，肤色自然一点..." rows="4"></textarea>
-            <button class="btn-primary" onclick="applyAIEdit()">AI 美化</button>
+
+            <!-- Step 2: suggestion cards (hidden until analyzed) -->
+            <div id="suggestion-area" class="hidden">
+              <div class="section-row">
+                <span class="section-label">选择风格</span>
+                <button class="btn-text" onclick="analyzePhoto()">重新生成</button>
+              </div>
+              <div id="suggestion-grid" class="suggestion-grid"></div>
+            </div>
+
+            <!-- Instruction textarea -->
+            <div class="ai-textarea-wrap">
+              <div class="section-row">
+                <span class="section-label">修图描述</span>
+                <button class="btn-text" onclick="openPromptLibrary()">从提示词库选择</button>
+              </div>
+              <textarea id="ai-instruction"
+                placeholder="选择上方风格卡片后自动填写，或直接输入描述..."
+                rows="3"></textarea>
+            </div>
+
+            <button class="btn-primary w-full" onclick="applyAIEdit()">生成效果图</button>
             <div id="ai-explanation" class="ai-explanation hidden"></div>
           </div>
         </div>
@@ -162,6 +222,69 @@
     </div>
   </div>
 
+  <!-- Prompt Library Modal -->
+  <div id="prompt-modal" class="modal-overlay hidden" onclick="modalOverlayClick(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>提示词库</h3>
+        <div class="modal-header-actions">
+          <button class="btn-primary small" onclick="startNewPrompt()">+ 新增</button>
+          <button class="modal-close" onclick="closePromptLibrary()">✕</button>
+        </div>
+      </div>
+
+      <div class="modal-toolbar">
+        <input type="text" id="lib-search" placeholder="搜索名称、内容或标签..."
+          oninput="filterPrompts()" autocomplete="off">
+        <select id="lib-category" onchange="filterPrompts()">
+          <option value="">全部分类</option>
+        </select>
+      </div>
+
+      <div class="modal-body">
+        <!-- Left: list -->
+        <div class="prompt-list" id="prompt-list">
+          <div class="list-empty">加载中...</div>
+        </div>
+
+        <!-- Right: edit panel -->
+        <div class="prompt-edit-panel" id="prompt-edit-panel">
+          <div class="edit-panel-empty" id="edit-empty">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:#cbd5e1"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <p>从左侧选择提示词<br>或点击「新增」</p>
+          </div>
+          <div class="prompt-form hidden" id="prompt-form">
+            <div class="form-field">
+              <label>名称</label>
+              <input type="text" id="pf-name" placeholder="简短的风格名称">
+            </div>
+            <div class="form-row">
+              <div class="form-field flex1">
+                <label>分类</label>
+                <input type="text" id="pf-category" placeholder="如：人像、风景、日常">
+              </div>
+              <div class="form-field flex1">
+                <label>标签（逗号分隔）</label>
+                <input type="text" id="pf-tags" placeholder="日系, 清新, 人像">
+              </div>
+            </div>
+            <div class="form-field">
+              <label>提示词内容</label>
+              <textarea id="pf-prompt" rows="7"
+                placeholder="输入完整的修图提示词，描述需要调整的具体内容..."></textarea>
+            </div>
+            <div class="form-actions">
+              <button class="btn-primary" onclick="saveCurrentPrompt()">保存</button>
+              <button class="btn-danger" id="pf-delete" onclick="deleteCurrentPrompt()">删除</button>
+              <button class="btn-outline" onclick="useCurrentPrompt()">使用此提示词</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/curve_editor.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>
