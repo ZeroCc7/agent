@@ -6,5 +6,8 @@ opencv-python-headless>=4.9.0
 dashscope>=1.20.0
 numpy>=1.26.0
 python-dotenv>=1.0.0
+pytest>=8.0.0
+httpx>=0.27.0
+pytest-mock>=3.14.0
 # Optional background removal (downloads ~170MB model on first use):
 # pip install rembg onnxruntime
