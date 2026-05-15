@@ -1120,32 +1120,51 @@ textarea:focus { border-color: var(--ink); background: var(--paper-warm); }
 .collapsible-header.open .collapse-arrow { transform: rotate(90deg); }
 .collapsible-body { margin-top: 12px; }
 
-/* ── Reference image panel ───────────────────────────────────────────── */
-.ref-hint {
+/* ── Reference image tab ─────────────────────────────────────────────── */
+.ref-upload-zone {
+  border: 2px dashed var(--pencil-light);
+  padding: 36px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: center;
+  margin-bottom: 16px;
+}
+.ref-upload-zone:hover,
+.ref-upload-zone.dragover {
+  border-color: var(--ink);
+  background: var(--paper-warm);
+}
+.ref-upload-label {
+  font-family: 'Caveat', cursive;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+.ref-upload-hint {
   font-family: 'Space Mono', monospace;
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   color: var(--pencil-light);
-  line-height: 1.6;
-  margin-bottom: 10px;
 }
 
 .ref-result {
-  margin-top: 12px;
   border: 2px solid var(--pencil-light);
   background: var(--paper);
-  padding: 10px;
+  padding: 14px;
 }
 
 .ref-result-inner {
   display: flex;
-  gap: 10px;
+  gap: 14px;
   align-items: flex-start;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .ref-thumb {
-  width: 64px;
-  height: 64px;
+  width: 90px;
+  height: 90px;
   object-fit: cover;
   border: 2px solid var(--pencil-light);
   flex-shrink: 0;
@@ -1155,24 +1174,24 @@ textarea:focus { border-color: var(--ink); background: var(--paper-warm); }
 
 .ref-style-name {
   font-family: 'Caveat', cursive;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: var(--ink);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .ref-explanation {
   font-family: 'Space Mono', monospace;
   font-size: 0.62rem;
   color: var(--pencil);
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .ref-actions {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .ref-save-dialog {
@@ -1197,6 +1216,40 @@ textarea:focus { border-color: var(--ink); background: var(--paper-warm); }
 .ref-save-dialog input[type="text"]:focus { border-color: var(--ink); }
 
 .ref-save-btns { display: flex; gap: 6px; }
+
+.ref-reupload-btn {
+  margin-top: 10px;
+  width: 100%;
+  font-size: 0.7rem;
+  color: var(--pencil-light);
+}
+
+.ref-compare-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--pencil-light);
+}
+
+.ref-compare-hint {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--pencil-light);
+  line-height: 1.4;
+}
+
+.ref-compare-explanation {
+  margin-top: 8px;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--pencil);
+  line-height: 1.55;
+  background: var(--paper-warm);
+  border-left: 3px solid var(--kraft);
+  padding: 8px 10px;
+}
 
 /* ── Preset Library Modal ────────────────────────────────────────────── */
 .modal-toolbar #preset-search {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI 照片美化</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=4">
 </head>
 <body>
   <header>
@@ -72,6 +72,7 @@
           <div class="tabs">
             <button class="tab active" data-tab="manual" onclick="switchTab(this,'manual')">手动调整</button>
             <button class="tab" data-tab="ai" onclick="switchTab(this,'ai')">AI 智能编辑</button>
+            <button class="tab" data-tab="ref" onclick="switchTab(this,'ref')">参考图</button>
           </div>
 
           <!-- Manual controls -->
@@ -205,45 +206,6 @@
               </div>
             </div>
 
-            <!-- Reference image panel -->
-            <div class="control-group">
-              <div class="collapsible-header" onclick="toggleCollapse('ref-body', this)">
-                <h4>参考图</h4>
-                <span class="collapse-arrow">▸</span>
-              </div>
-              <div id="ref-body" class="collapsible-body hidden">
-                <p class="ref-hint">上传风格参考图，AI 提取参数填入滑块</p>
-                <button class="btn-outline small" onclick="document.getElementById('ref-input').click()">
-                  上传参考图
-                </button>
-                <input type="file" id="ref-input" accept="image/jpeg,image/png,image/webp"
-                  style="display:none" onchange="handleReferenceUpload(this.files[0])">
-
-                <div id="ref-result" class="ref-result hidden">
-                  <div class="ref-result-inner">
-                    <img id="ref-thumb" class="ref-thumb" alt="">
-                    <div class="ref-info">
-                      <div class="ref-style-name" id="ref-style-name"></div>
-                      <div class="ref-explanation" id="ref-explanation"></div>
-                    </div>
-                  </div>
-                  <div class="ref-actions">
-                    <button class="btn-ghost small" onclick="applyReferenceParams()">应用参数</button>
-                    <button class="btn-ghost small" onclick="generateFromReference()">AI 生成</button>
-                    <button class="btn-ghost small" id="ref-save-btn" onclick="openSavePresetDialog()">保存预设</button>
-                  </div>
-                  <div id="ref-save-dialog" class="ref-save-dialog hidden">
-                    <input type="text" id="ref-preset-name" placeholder="预设名称...">
-                    <input type="text" id="ref-preset-category" placeholder="分类（可选）">
-                    <div class="ref-save-btns">
-                      <button class="btn-primary small" onclick="confirmSavePreset()">保存</button>
-                      <button class="btn-ghost small" onclick="closeSavePresetDialog()">取消</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             <!-- Color curve editor -->
             <div class="control-group curve-section">
               <h4>色彩曲线</h4>
@@ -303,6 +265,55 @@
 
             <button class="btn-primary w-full" onclick="applyAIEdit()">生成效果图</button>
             <div id="ai-explanation" class="ai-explanation hidden"></div>
+          </div>
+
+          <!-- Reference image tab -->
+          <div id="panel-ref" class="tab-panel hidden">
+            <div class="ref-upload-zone" id="ref-drop-zone"
+                 onclick="document.getElementById('ref-input').click()"
+                 ondragover="event.preventDefault();this.classList.add('dragover')"
+                 ondragleave="this.classList.remove('dragover')"
+                 ondrop="event.preventDefault();this.classList.remove('dragover');handleReferenceUpload(event.dataTransfer.files[0])">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <p class="ref-upload-label">拖拽或点击上传参考图</p>
+              <p class="ref-upload-hint">AI 提取风格参数，一键应用到当前照片</p>
+            </div>
+            <input type="file" id="ref-input" accept="image/jpeg,image/png,image/webp"
+              style="display:none" onchange="handleReferenceUpload(this.files[0])">
+
+            <div id="ref-result" class="ref-result hidden">
+              <div class="ref-result-inner">
+                <img id="ref-thumb" class="ref-thumb" alt="">
+                <div class="ref-info">
+                  <div class="ref-style-name" id="ref-style-name"></div>
+                  <div class="ref-explanation" id="ref-explanation"></div>
+                </div>
+              </div>
+              <div class="ref-actions">
+                <button class="btn-primary small" onclick="applyReferenceParams()">应用参数</button>
+                <button class="btn-ghost small" onclick="generateFromReference()">AI 生成</button>
+                <button class="btn-ghost small" id="ref-save-btn" onclick="openSavePresetDialog()">保存预设</button>
+              </div>
+              <div class="ref-compare-row">
+                <button class="btn-outline small" onclick="compareStyle()">AI 比对调整</button>
+                <span class="ref-compare-hint">先应用参数生成效果图，再比对修正</span>
+              </div>
+              <div id="ref-compare-explanation" class="ref-compare-explanation hidden"></div>
+              <div id="ref-save-dialog" class="ref-save-dialog hidden">
+                <input type="text" id="ref-preset-name" placeholder="预设名称...">
+                <input type="text" id="ref-preset-category" placeholder="分类（可选）">
+                <div class="ref-save-btns">
+                  <button class="btn-primary small" onclick="confirmSavePreset()">保存</button>
+                  <button class="btn-ghost small" onclick="closeSavePresetDialog()">取消</button>
+                </div>
+              </div>
+              <button class="btn-ghost small ref-reupload-btn"
+                      onclick="document.getElementById('ref-input').click()">换一张参考图</button>
+            </div>
           </div>
         </div>
       </div>
@@ -401,7 +412,7 @@
     </div>
   </div>
 
-  <script src="/static/curve_editor.js"></script>
-  <script src="/static/app.js"></script>
+  <script src="/static/curve_editor.js?v=4"></script>
+  <script src="/static/app.js?v=4"></script>
 </body>
 </html>

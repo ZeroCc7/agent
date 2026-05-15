@@ -23,11 +23,12 @@ from app.core.preset_store import (
     list_presets,
     update_preset as _update_preset,
 )
-from app.core.reference_analyzer import analyze_reference
+from app.core.reference_analyzer import analyze_reference, compare_result
 from app.types.models import (
     AIEditRequest, AnalyzeRequest, AnalyzeResponse,
     CurrentParams, CurveParams, EditResponse,
     ExtendedEditParams,
+    CompareStyleRequest, CompareStyleResponse,
     ManualEditRequest, Preset, PresetCreate, PresetUpdate,
     Prompt, PromptCreate, PromptUpdate,
     ReferenceAnalyzeRequest, ReferenceAnalyzeResponse,
@@ -245,6 +246,36 @@ async def analyze_reference_image(request: ReferenceAnalyzeRequest):
         raise HTTPException(500, str(e))
     except Exception as e:
         raise HTTPException(500, f"参考图分析失败：{e}")
+
+
+@router.post("/compare-style", response_model=CompareStyleResponse)
+async def compare_style(request: CompareStyleRequest):
+    result_path = OUTPUT_DIR / request.result_filename
+    reference_path = UPLOAD_DIR / request.reference_filename
+
+    if not result_path.exists():
+        raise HTTPException(404, "效果图不存在，请先应用参数生成效果图")
+    if not reference_path.exists():
+        raise HTTPException(404, "参考图不存在，请重新上传")
+
+    try:
+        raw = await asyncio.to_thread(compare_result, result_path, reference_path)
+
+        params_dict = {k: v for k, v in raw.items()
+                       if k not in ("curve_params", "style_name", "explanation")}
+        curve_dict = raw.get("curve_params") or {}
+
+        return CompareStyleResponse(
+            params=CurrentParams(**params_dict),
+            curve_params=CurveParams(**curve_dict),
+            explanation=raw.get("explanation", ""),
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"AI 比对失败：{e}")
 
 
 # ── Parameter preset library ──────────────────────────────────────────

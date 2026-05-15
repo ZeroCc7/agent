@@ -1,1 +1,297 @@
-[]
+[
+  {
+    "id": "2ed1374e-e5f4-47bc-bae8-c3bf93587223",
+    "name": "青冷胶片风",
+    "category": "人像",
+    "tags": [],
+    "params": {
+      "brightness": -15,
+      "contrast": -25,
+      "saturation": -20,
+      "sharpness": -5,
+      "color_temp": -20,
+      "smooth_skin": true,
+      "smooth_level": 40,
+      "brighten_skin": true,
+      "background_action": "none",
+      "highlights": -40,
+      "shadows": 45,
+      "whites": -30,
+      "blacks": 35,
+      "vibrance": -10,
+      "clarity": -15,
+      "vignette": -25,
+      "grain": 30,
+      "shadow_tint": 130,
+      "shadow_tint_strength": 40,
+      "highlight_tint": 210,
+      "highlight_tint_strength": 15
+    },
+    "curve_params": {
+      "rgb": [
+        [
+          0,
+          20
+        ],
+        [
+          60,
+          70
+        ],
+        [
+          180,
+          190
+        ],
+        [
+          255,
+          240
+        ]
+      ],
+      "r": [
+        [
+          0,
+          0
+        ],
+        [
+          128,
+          115
+        ],
+        [
+          255,
+          225
+        ]
+      ],
+      "g": [
+        [
+          0,
+          10
+        ],
+        [
+          128,
+          140
+        ],
+        [
+          255,
+          245
+        ]
+      ],
+      "b": [
+        [
+          0,
+          20
+        ],
+        [
+          128,
+          135
+        ],
+        [
+          255,
+          235
+        ]
+      ]
+    },
+    "created_at": "2026-05-15T15:24:00.692326",
+    "updated_at": "2026-05-15T15:24:00.692326"
+  },
+  {
+    "id": "b228acb6-d82e-4120-91b7-2c91deb29aa2",
+    "name": "硬调黑白",
+    "category": "",
+    "tags": [],
+    "params": {
+      "brightness": -10,
+      "contrast": 55,
+      "saturation": -60,
+      "sharpness": 35,
+      "color_temp": 0,
+      "smooth_skin": false,
+      "smooth_level": 0,
+      "brighten_skin": false,
+      "background_action": "none",
+      "highlights": -15,
+      "shadows": -70,
+      "whites": 50,
+      "blacks": -60,
+      "vibrance": -60,
+      "clarity": 45,
+      "vignette": -25,
+      "grain": 15,
+      "shadow_tint": 0,
+      "shadow_tint_strength": 0,
+      "highlight_tint": 0,
+      "highlight_tint_strength": 0
+    },
+    "curve_params": {
+      "rgb": [
+        [
+          0,
+          0
+        ],
+        [
+          50,
+          25
+        ],
+        [
+          200,
+          235
+        ],
+        [
+          255,
+          255
+        ]
+      ],
+      "r": [
+        [
+          0,
+          0
+        ],
+        [
+          255,
+          255
+        ]
+      ],
+      "g": [
+        [
+          0,
+          0
+        ],
+        [
+          255,
+          255
+        ]
+      ],
+      "b": [
+        [
+          0,
+          0
+        ],
+        [
+          255,
+          255
+        ]
+      ]
+    },
+    "created_at": "2026-05-15T15:43:12.612493",
+    "updated_at": "2026-05-15T15:43:12.612493"
+  },
+  {
+    "id": "c4dc6ba6-f045-4a64-b3bb-fb2263a3b240",
+    "name": "硬光青蓝",
+    "category": "",
+    "tags": [],
+    "params": {
+      "brightness": 5,
+      "contrast": 45,
+      "saturation": 15,
+      "sharpness": 25,
+      "color_temp": 10,
+      "smooth_skin": true,
+      "smooth_level": 20,
+      "brighten_skin": false,
+      "background_action": "none",
+      "highlights": -15,
+      "shadows": -45,
+      "whites": 30,
+      "blacks": -50,
+      "vibrance": 10,
+      "clarity": 30,
+      "vignette": -30,
+      "grain": 15,
+      "shadow_tint": 210,
+      "shadow_tint_strength": 60,
+      "highlight_tint": 45,
+      "highlight_tint_strength": 40
+    },
+    "curve_params": {
+      "rgb": [
+        [
+          0,
+          0
+        ],
+        [
+          50,
+          35
+        ],
+        [
+          128,
+          135
+        ],
+        [
+          200,
+          225
+        ],
+        [
+          255,
+          255
+        ]
+      ],
+      "r": [
+        [
+          0,
+          0
+        ],
+        [
+          50,
+          40
+        ],
+        [
+          128,
+          128
+        ],
+        [
+          200,
+          220
+        ],
+        [
+          255,
+          255
+        ]
+      ],
+      "g": [
+        [
+          0,
+          0
+        ],
+        [
+          50,
+          45
+        ],
+        [
+          128,
+          130
+        ],
+        [
+          200,
+          220
+        ],
+        [
+          255,
+          255
+        ]
+      ],
+      "b": [
+        [
+          0,
+          20
+        ],
+        [
+          50,
+          45
+        ],
+        [
+          128,
+          125
+        ],
+        [
+          200,
+          200
+        ],
+        [
+          255,
+          220
+        ]
+      ]
+    },
+    "created_at": "2026-05-15T15:51:19.215226",
+    "updated_at": "2026-05-15T15:51:19.215226"
+  }
+]

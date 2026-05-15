@@ -155,6 +155,17 @@ class ReferenceAnalyzeResponse(BaseModel):
     explanation: str
 
 
+class CompareStyleRequest(BaseModel):
+    result_filename: str
+    reference_filename: str
+
+
+class CompareStyleResponse(BaseModel):
+    params: CurrentParams
+    curve_params: CurveParams
+    explanation: str
+
+
 # ── Parameter preset library ──────────────────────────────────────────
 
 class Preset(BaseModel):

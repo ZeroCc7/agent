@@ -774,6 +774,9 @@ function applyReferenceParams() {
     highlight_tint_strength: _referenceParams.highlight_tint_strength || 0,
   };
   if (_curveEditor && _referenceCurves) _curveEditor.setData(_referenceCurves);
+  const manualBtn = document.querySelector('.tab[data-tab="manual"]');
+  if (manualBtn) switchTab(manualBtn, 'manual');
+  applyManualEdit();
 }
 
 function generateFromReference() {
@@ -782,6 +785,51 @@ function generateFromReference() {
   document.getElementById('ai-instruction').value = explanation;
   const aiTabBtn = document.querySelector('.tab[data-tab="ai"]');
   if (aiTabBtn) switchTab(aiTabBtn, 'ai');
+}
+
+async function compareStyle() {
+  if (!resultFilename) {
+    alert('请先点击「应用参数」生成效果图，再使用 AI 比对');
+    return;
+  }
+  if (!_referenceFilename) return;
+
+  showLoading('AI 比对分析中，约需 10-20 秒...');
+  try {
+    const res = await fetch('/api/compare-style', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        result_filename: resultFilename,
+        reference_filename: _referenceFilename,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || '比对失败');
+
+    applyParamsToSliders(data.params);
+    _splitToning = {
+      shadow_tint:             data.params.shadow_tint             || 0,
+      shadow_tint_strength:    data.params.shadow_tint_strength    || 0,
+      highlight_tint:          data.params.highlight_tint          || 0,
+      highlight_tint_strength: data.params.highlight_tint_strength || 0,
+    };
+    if (_curveEditor && data.curve_params) _curveEditor.setData(data.curve_params);
+
+    const expEl = document.getElementById('ref-compare-explanation');
+    if (expEl) {
+      expEl.textContent = data.explanation;
+      expEl.classList.remove('hidden');
+    }
+
+    const manualBtn = document.querySelector('.tab[data-tab="manual"]');
+    if (manualBtn) switchTab(manualBtn, 'manual');
+    applyManualEdit();
+  } catch (err) {
+    alert('AI 比对失败：' + err.message);
+  } finally {
+    hideLoading();
+  }
 }
 
 function openSavePresetDialog() {

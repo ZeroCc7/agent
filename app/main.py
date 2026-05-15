@@ -24,3 +24,14 @@ app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 @app.get("/", response_class=HTMLResponse)
 async def index():
     return Path("app/static/index.html").read_text(encoding="utf-8")
+
+
+if __name__ == "__main__":
+    import os
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host=os.getenv("HOST", "0.0.0.0"),
+        port=int(os.getenv("PORT", 8000)),
+        reload=True,
+    )

@@ -226,6 +226,137 @@ def _parse_and_normalize(text: str) -> dict:
     return result
 
 
+_COMPARE_SYSTEM = (
+    "你是一位有十年经验的专业摄影师和调色师，精通 Lightroom、Photoshop 等修图工具。"
+    "你的任务是：对比两张图片，找出当前效果图与目标参考图之间的风格差距，"
+    "输出一套修正后的完整参数集，用于重新处理原始照片，使其更接近参考图的视觉风格。"
+    "你必须做到：精准识别两图之间的具体差异，给出有针对性的修正值，不说套话。"
+)
+
+_COMPARE_PROMPT = """\
+你收到两张图：
+【图A · 当前效果图】：这是对原始照片应用了参考风格参数后的处理结果。
+【图B · 目标参考图】：这是希望达到的目标风格。
+
+请仔细比对两张图，找出图A与图B之间的风格差距，重点关注：
+- 色温偏差（A偏冷/偏暖？与B相比）
+- 对比度强弱（A的明暗关系与B是否匹配）
+- 饱和度差异（A比B更鲜艳还是更灰）
+- 高光/阴影细节（亮部暗部的处理方向是否对齐）
+- 色调倾向（色偏、分色方向）
+- 曲线形态（整体S型强度、色彩通道方向）
+
+基于以上差距分析，输出一套修正后的完整参数集（用于重新处理原始照片）。
+这套参数要在原有基础上进行修正，使结果更贴近图B。
+
+━━ 参数说明 ━━
+  brightness    整体亮度，-60~60，0=原图，正=更亮，负=更暗
+  contrast      对比度，-60~60，正=更强，负=更柔
+  highlights    高光控制，-100~100，负=压制高光，正=拉亮高光
+  shadows       阴影控制，-100~100，正=提亮暗部，负=压暗
+  whites        白点，-100~100，控制极亮区域
+  blacks        黑点，-100~100，控制极暗区域
+  saturation    饱和度，-60~60，正=鲜艳，负=去色/褪色
+  vibrance      自然饱和度，-60~60，优先提升低饱和区域，保护肤色
+  clarity       清晰度，-60~60，正=通透质感，负=柔焦奶油感
+  sharpness     锐度，-60~60，正=更锐，负=更柔
+  color_temp    色温，-100~100，负=冷蓝，正=暖黄
+  vignette      暗角，-100~100，负=边缘压暗（电影感），正=边缘提亮
+  grain         颗粒感，0~100，模拟胶片颗粒
+  shadow_tint           阴影色相，0~360
+  shadow_tint_strength  阴影色调强度，0~100
+  highlight_tint        高光色相，0~360
+  highlight_tint_strength 高光色调强度，0~100
+  smooth_skin   磨皮开关，true/false
+  smooth_level  磨皮程度，0~100
+  brighten_skin 提亮肤色，true/false
+
+━━ 色彩曲线（curve_params）━━
+控制点格式：[输入值, 输出值]，范围 0-255（整数）
+必须包含 [0,Y0] 和 [255,Y255] 两个端点，中间可加 1-4 个控制点
+  rgb   主曲线，控制整体明暗与对比
+  r     红色通道（增大=偏红/暖，减小=偏青）
+  g     绿色通道（增大=偏绿，减小=偏品红）
+  b     蓝色通道（增大=偏蓝/冷，减小=偏黄）
+
+━━ 规则 ━━
+1. 参数必须真实反映比对结果，不要给无意义的中性值
+2. 曲线是风格核心，必须认真对比两图的色彩通道差异
+3. style_name 沿用原风格名，explanation 重点说明与上次相比做了哪些修正、为什么（30-60字）
+
+输出格式：
+{
+  "brightness": 整数,
+  "contrast": 整数,
+  "highlights": 整数,
+  "shadows": 整数,
+  "whites": 整数,
+  "blacks": 整数,
+  "saturation": 整数,
+  "vibrance": 整数,
+  "clarity": 整数,
+  "sharpness": 整数,
+  "color_temp": 整数,
+  "vignette": 整数,
+  "grain": 整数,
+  "shadow_tint": 整数,
+  "shadow_tint_strength": 整数,
+  "highlight_tint": 整数,
+  "highlight_tint_strength": 整数,
+  "smooth_skin": bool,
+  "smooth_level": 整数,
+  "brighten_skin": bool,
+  "curve_params": {
+    "rgb": [[整数,整数], ...],
+    "r":   [[整数,整数], ...],
+    "g":   [[整数,整数], ...],
+    "b":   [[整数,整数], ...]
+  },
+  "style_name": "字符串",
+  "explanation": "字符串"
+}"""
+
+
+def compare_result(result_path: Path, reference_path: Path) -> dict:
+    """Compare the current edit result against the reference image and return
+    corrected parameters to apply to the original photo.
+
+    Args:
+        result_path: Path to the already-processed result image (outputs/).
+        reference_path: Path to the reference/target image (uploads/).
+
+    Returns:
+        Same schema as analyze_reference.
+    """
+    api_key = os.getenv("DASHSCOPE_API_KEY")
+    if not api_key:
+        raise ValueError("未配置 DASHSCOPE_API_KEY")
+
+    model = os.getenv("ANALYZE_MODEL", "qwen3.6-plus")
+
+    rsp = MultiModalConversation.call(
+        model=model,
+        api_key=api_key,
+        messages=[
+            {"role": "system", "content": [{"text": _COMPARE_SYSTEM}]},
+            {"role": "user", "content": [
+                {"image": _image_ref(result_path)},
+                {"image": _image_ref(reference_path)},
+                {"text": _COMPARE_PROMPT},
+            ]},
+        ],
+    )
+
+    if rsp.status_code != 200:
+        raise RuntimeError(f"AI 比对失败 [{rsp.code}]: {rsp.message}")
+
+    text = _extract_text(rsp)
+    if not text:
+        raise RuntimeError("模型返回内容为空")
+
+    return _parse_and_normalize(text)
+
+
 def analyze_reference(image_path: Path) -> dict:
     """Analyze a reference image and return its style as a parameter dict.
 
