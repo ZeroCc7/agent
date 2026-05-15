@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI 照片美化</title>
-  <link rel="stylesheet" href="/static/style.css?v=4">
+  <link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body>
   <header>
@@ -60,7 +60,14 @@
           <div class="preview-panel">
             <div class="panel-label">效果图</div>
             <div class="img-wrap result-wrap">
+              <img id="original-overlay" class="compare-original hidden" alt="">
               <img id="result-img" alt="效果图">
+              <div id="compare-divider" class="compare-divider hidden">
+                <div class="compare-line"></div>
+                <div class="compare-btn">⟺</div>
+              </div>
+              <span class="compare-label compare-label-l hidden" id="cmp-label-l">原图</span>
+              <span class="compare-label compare-label-r hidden" id="cmp-label-r">效果</span>
               <div id="result-placeholder" class="result-placeholder">调整参数后点击「应用」</div>
             </div>
             <button id="download-btn" class="btn-primary hidden" onclick="downloadResult()">下载图片</button>
@@ -141,28 +148,13 @@
               </div>
             </div>
 
-            <!-- AI parameter suggestion -->
-            <div class="control-group">
-              <div class="assist-header">
-                <h4>AI 解读参数</h4>
-                <span class="assist-sub">语言描述 → 自动调整滑块</span>
-              </div>
-              <div class="assist-row">
-                <input type="text" id="assist-input"
-                  placeholder="如：再亮一点，色调偏暖，磨皮..."
-                  onkeydown="if(event.key==='Enter')getSuggestion()">
-                <button class="btn-assist" id="assist-btn" onclick="getSuggestion()">解读</button>
-              </div>
-              <div id="assist-explanation" class="assist-explanation hidden"></div>
-            </div>
-
             <!-- Extended adjustments (collapsible) -->
             <div class="control-group">
-              <div class="collapsible-header" onclick="toggleCollapse('advanced-sliders', this)">
+              <div class="collapsible-header open" onclick="toggleCollapse('advanced-sliders', this)">
                 <h4>高级调整</h4>
                 <span class="collapse-arrow">▸</span>
               </div>
-              <div id="advanced-sliders" class="collapsible-body hidden">
+              <div id="advanced-sliders" class="collapsible-body">
                 <div class="slider-row">
                   <label>高光</label>
                   <input type="range" id="highlights" min="-100" max="100" value="0" oninput="updateLabel(this)">
@@ -233,6 +225,21 @@
 
           <!-- AI controls -->
           <div id="panel-ai" class="tab-panel hidden">
+
+            <!-- Quick text → sliders -->
+            <div class="control-group">
+              <div class="assist-header">
+                <h4>AI 解读参数</h4>
+                <span class="assist-sub">描述效果 → 自动调整滑块</span>
+              </div>
+              <div class="assist-row">
+                <input type="text" id="assist-input"
+                  placeholder="如：再亮一点，色调偏暖，磨皮..."
+                  onkeydown="if(event.key==='Enter')getSuggestion()">
+                <button class="btn-assist" id="assist-btn" onclick="getSuggestion()">解读</button>
+              </div>
+              <div id="assist-explanation" class="assist-explanation hidden"></div>
+            </div>
 
             <!-- Step 1: analyze trigger -->
             <div id="ai-analyze-area">
@@ -412,7 +419,7 @@
     </div>
   </div>
 
-  <script src="/static/curve_editor.js?v=4"></script>
-  <script src="/static/app.js?v=4"></script>
+  <script src="/static/curve_editor.js?v=5"></script>
+  <script src="/static/app.js?v=5"></script>
 </body>
 </html>

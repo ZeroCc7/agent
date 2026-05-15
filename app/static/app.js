@@ -4,6 +4,8 @@ let currentFilename = null;
 let resultFilename = null;
 let _curveEditor = null;
 let _splitToning = { shadow_tint: 0, shadow_tint_strength: 0, highlight_tint: 0, highlight_tint_strength: 0 };
+let _autoApplyTimer = null;
+let _compareDragging = false;
 
 // ── Init ──────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -25,7 +27,76 @@ document.addEventListener('DOMContentLoaded', () => {
   fileInput.addEventListener('change', e => {
     if (e.target.files[0]) uploadFile(e.target.files[0]);
   });
+
+  // Auto-apply on slider / checkbox / select changes in manual panel
+  const manualPanel = document.getElementById('panel-manual');
+  manualPanel.addEventListener('input', e => {
+    if (e.target.matches('input[type="range"]')) scheduleAutoApply();
+  });
+  manualPanel.addEventListener('change', e => {
+    if (e.target.matches('input[type="checkbox"], select')) scheduleAutoApply();
+  });
+
+  // Before/After drag
+  const divider = document.getElementById('compare-divider');
+  divider.addEventListener('mousedown', e => {
+    _compareDragging = true;
+    e.preventDefault();
+  });
+  divider.addEventListener('touchstart', () => { _compareDragging = true; }, { passive: true });
+
+  document.addEventListener('mousemove', e => {
+    if (!_compareDragging) return;
+    applyComparePos(e.clientX);
+  });
+  document.addEventListener('touchmove', e => {
+    if (!_compareDragging) return;
+    applyComparePos(e.touches[0].clientX);
+  }, { passive: true });
+  document.addEventListener('mouseup',  () => { _compareDragging = false; });
+  document.addEventListener('touchend', () => { _compareDragging = false; });
 });
+
+function scheduleAutoApply() {
+  if (!currentFilename) return;
+  clearTimeout(_autoApplyTimer);
+  _autoApplyTimer = setTimeout(applyManualEdit, 800);
+}
+
+// ── Before/After comparison ───────────────────────────────────────────
+function applyComparePos(clientX) {
+  const wrap = document.querySelector('.result-wrap');
+  if (!wrap) return;
+  const rect = wrap.getBoundingClientRect();
+  const pct = Math.max(2, Math.min(98, ((clientX - rect.left) / rect.width) * 100));
+  document.getElementById('compare-divider').style.left = pct + '%';
+  document.getElementById('result-img').style.clipPath = `inset(0 0 0 ${pct}%)`;
+}
+
+function initCompare() {
+  const origImg = document.getElementById('original-img');
+  if (!origImg.src || origImg.src === window.location.href) return;
+
+  const overlay = document.getElementById('original-overlay');
+  overlay.src = origImg.src;
+  overlay.classList.remove('hidden');
+
+  const divider = document.getElementById('compare-divider');
+  divider.style.left = '50%';
+  divider.classList.remove('hidden');
+
+  document.getElementById('result-img').style.clipPath = 'inset(0 0 0 50%)';
+  document.getElementById('cmp-label-l').classList.remove('hidden');
+  document.getElementById('cmp-label-r').classList.remove('hidden');
+}
+
+function resetCompare() {
+  document.getElementById('original-overlay').classList.add('hidden');
+  document.getElementById('compare-divider').classList.add('hidden');
+  document.getElementById('cmp-label-l').classList.add('hidden');
+  document.getElementById('cmp-label-r').classList.add('hidden');
+  document.getElementById('result-img').style.clipPath = '';
+}
 
 // ── Upload ────────────────────────────────────────────────────────────
 async function uploadFile(file) {
@@ -69,6 +140,8 @@ async function uploadFile(file) {
 function reupload() {
   currentFilename = null;
   resultFilename = null;
+  clearTimeout(_autoApplyTimer);
+  resetCompare();
   document.getElementById('editor-section').classList.add('hidden');
   document.getElementById('upload-section').classList.remove('hidden');
   document.getElementById('file-input').value = '';
@@ -405,7 +478,10 @@ function showResult(filename) {
   resultFilename = filename;
   const img = document.getElementById('result-img');
   img.src = `/outputs/${filename}?t=${Date.now()}`;
-  img.onload = () => document.querySelector('.result-wrap').classList.add('has-result');
+  img.onload = () => {
+    document.querySelector('.result-wrap').classList.add('has-result');
+    initCompare();
+  };
   document.getElementById('download-btn').classList.remove('hidden');
 }
 
