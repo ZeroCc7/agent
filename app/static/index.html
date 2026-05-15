@@ -149,6 +149,56 @@
               <div id="assist-explanation" class="assist-explanation hidden"></div>
             </div>
 
+            <!-- Extended adjustments (collapsible) -->
+            <div class="control-group">
+              <div class="collapsible-header" onclick="toggleCollapse('advanced-sliders', this)">
+                <h4>高级调整</h4>
+                <span class="collapse-arrow">▸</span>
+              </div>
+              <div id="advanced-sliders" class="collapsible-body hidden">
+                <div class="slider-row">
+                  <label>高光</label>
+                  <input type="range" id="highlights" min="-100" max="100" value="0" oninput="updateLabel(this)">
+                  <span class="slider-val" id="highlights-val">0</span>
+                </div>
+                <div class="slider-row">
+                  <label>阴影</label>
+                  <input type="range" id="shadows" min="-100" max="100" value="0" oninput="updateLabel(this)">
+                  <span class="slider-val" id="shadows-val">0</span>
+                </div>
+                <div class="slider-row">
+                  <label>白点</label>
+                  <input type="range" id="whites" min="-100" max="100" value="0" oninput="updateLabel(this)">
+                  <span class="slider-val" id="whites-val">0</span>
+                </div>
+                <div class="slider-row">
+                  <label>黑点</label>
+                  <input type="range" id="blacks" min="-100" max="100" value="0" oninput="updateLabel(this)">
+                  <span class="slider-val" id="blacks-val">0</span>
+                </div>
+                <div class="slider-row">
+                  <label>自然饱和</label>
+                  <input type="range" id="vibrance" min="-60" max="60" value="0" oninput="updateLabel(this)">
+                  <span class="slider-val" id="vibrance-val">0</span>
+                </div>
+                <div class="slider-row">
+                  <label>清晰度</label>
+                  <input type="range" id="clarity" min="-60" max="60" value="0" oninput="updateLabel(this)">
+                  <span class="slider-val" id="clarity-val">0</span>
+                </div>
+                <div class="slider-row">
+                  <label>暗角</label>
+                  <input type="range" id="vignette" min="-100" max="100" value="0" oninput="updateLabel(this)">
+                  <span class="slider-val" id="vignette-val">0</span>
+                </div>
+                <div class="slider-row">
+                  <label>颗粒感</label>
+                  <input type="range" id="grain" min="0" max="100" value="0" oninput="updateLabel(this)">
+                  <span class="slider-val" id="grain-val">0</span>
+                </div>
+              </div>
+            </div>
+
             <!-- Color curve editor -->
             <div class="control-group curve-section">
               <h4>色彩曲线</h4>

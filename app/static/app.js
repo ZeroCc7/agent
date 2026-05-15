@@ -3,6 +3,7 @@
 let currentFilename = null;
 let resultFilename = null;
 let _curveEditor = null;
+let _splitToning = { shadow_tint: 0, shadow_tint_strength: 0, highlight_tint: 0, highlight_tint_strength: 0 };
 
 // ── Init ──────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -101,6 +102,34 @@ function getCurveParams() {
   return _curveEditor.getData();
 }
 
+function toggleCollapse(id, header) {
+  const body = document.getElementById(id);
+  const isHidden = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !isHidden);
+  header.classList.toggle('open', isHidden);
+}
+
+function getCurrentSliderValues() {
+  return {
+    brightness:    parseInt(document.getElementById('brightness').value),
+    contrast:      parseInt(document.getElementById('contrast').value),
+    saturation:    parseInt(document.getElementById('saturation').value),
+    sharpness:     parseInt(document.getElementById('sharpness').value),
+    color_temp:    parseInt(document.getElementById('colortemp').value),
+    smooth_level:  parseInt(document.getElementById('smooth-level').value),
+    smooth_skin:   document.getElementById('smooth-skin').checked,
+    brighten_skin: document.getElementById('brighten-skin').checked,
+    highlights:    parseInt(document.getElementById('highlights').value),
+    shadows:       parseInt(document.getElementById('shadows').value),
+    whites:        parseInt(document.getElementById('whites').value),
+    blacks:        parseInt(document.getElementById('blacks').value),
+    vibrance:      parseInt(document.getElementById('vibrance').value),
+    clarity:       parseInt(document.getElementById('clarity').value),
+    vignette:      parseInt(document.getElementById('vignette').value),
+    grain:         parseInt(document.getElementById('grain').value),
+  };
+}
+
 // ── Tabs ──────────────────────────────────────────────────────────────
 function switchTab(btn, name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -171,7 +200,6 @@ async function getSuggestion() {
 }
 
 function applyParamsToSliders(p) {
-  // Slider IDs differ from param keys for color_temp and smooth_level
   const sliderMap = {
     brightness:   'brightness',
     contrast:     'contrast',
@@ -179,6 +207,14 @@ function applyParamsToSliders(p) {
     sharpness:    'sharpness',
     color_temp:   'colortemp',
     smooth_level: 'smooth-level',
+    highlights:   'highlights',
+    shadows:      'shadows',
+    whites:       'whites',
+    blacks:       'blacks',
+    vibrance:     'vibrance',
+    clarity:      'clarity',
+    vignette:     'vignette',
+    grain:        'grain',
   };
   Object.entries(sliderMap).forEach(([key, id]) => {
     if (p[key] === undefined) return;
@@ -186,7 +222,6 @@ function applyParamsToSliders(p) {
     if (!el) return;
     el.value = p[key];
     updateLabel(el);
-    // Brief flash to show the slider changed
     el.classList.add('slider-updated');
     setTimeout(() => el.classList.remove('slider-updated'), 600);
   });
@@ -200,6 +235,18 @@ function applyParamsToSliders(p) {
   }
   if (p.background_action !== undefined) {
     document.getElementById('bg-action').value = p.background_action;
+  }
+
+  // Auto-expand advanced section when any extended param is non-zero
+  const hasExtended = ['highlights','shadows','whites','blacks','vibrance','clarity','vignette','grain']
+    .some(k => p[k] !== undefined && p[k] !== 0);
+  if (hasExtended) {
+    const body = document.getElementById('advanced-sliders');
+    const header = body?.previousElementSibling;
+    if (body?.classList.contains('hidden')) {
+      body.classList.remove('hidden');
+      header?.classList.add('open');
+    }
   }
 }
 
@@ -278,6 +325,17 @@ async function applyManualEdit() {
       saturation: sliderToEnhancer('saturation'),
       sharpness:  sliderToEnhancer('sharpness'),
       color_temp: parseInt(document.getElementById('colortemp').value),
+    },
+    extended_params: {
+      highlights: parseInt(document.getElementById('highlights').value),
+      shadows:    parseInt(document.getElementById('shadows').value),
+      whites:     parseInt(document.getElementById('whites').value),
+      blacks:     parseInt(document.getElementById('blacks').value),
+      vibrance:   parseInt(document.getElementById('vibrance').value),
+      clarity:    parseInt(document.getElementById('clarity').value),
+      vignette:   parseInt(document.getElementById('vignette').value),
+      grain:      parseInt(document.getElementById('grain').value),
+      ..._splitToning,
     },
     portrait_params: {
       smooth_skin:    document.getElementById('smooth-skin').checked,
@@ -375,6 +433,12 @@ function resetControls() {
   document.getElementById('bg-action').value = 'none';
   document.getElementById('smooth-options').classList.add('hidden');
   if (_curveEditor) _curveEditor.resetAll();
+
+  ['highlights','shadows','whites','blacks','vibrance','clarity','vignette','grain'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.value = 0; updateLabel(el); }
+  });
+  _splitToning = { shadow_tint: 0, shadow_tint_strength: 0, highlight_tint: 0, highlight_tint_strength: 0 };
 }
 
 // ── Prompt Library ────────────────────────────────────────────────────

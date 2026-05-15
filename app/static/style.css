@@ -1099,3 +1099,23 @@ textarea:focus { border-color: var(--ink); background: var(--paper-warm); }
   outline: 2px solid var(--kraft-dark);
   outline-offset: 2px;
 }
+
+/* ── Collapsible groups ───────────────────────────────────────────────── */
+.collapsible-header {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+.collapsible-header h4 { margin-bottom: 0; border-bottom: none; }
+.collapsible-header:hover h4 { color: var(--kraft-dark); }
+.collapse-arrow {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--pencil-light);
+  display: inline-block;
+  transition: transform 0.15s;
+}
+.collapsible-header.open .collapse-arrow { transform: rotate(90deg); }
+.collapsible-body { margin-top: 12px; }
