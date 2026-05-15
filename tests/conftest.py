@@ -1,5 +1,3 @@
-import io
-import os
 import pytest
 from pathlib import Path
 from PIL import Image
@@ -29,7 +27,7 @@ def test_image_path(tmp_path, test_image) -> Path:
 
 @pytest.fixture()
 def client():
-    """FastAPI TestClient with uploads/outputs redirected to tmp dirs."""
+    """FastAPI TestClient for API endpoint testing."""
     from app.main import app
     with TestClient(app) as c:
         yield c
