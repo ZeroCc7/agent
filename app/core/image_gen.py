@@ -13,7 +13,7 @@ import urllib.request
 from pathlib import Path
 
 import dashscope
-from dashscope.aigc.image_generation import ImageGeneration
+from dashscope.aigc.image_synthesis import ImageSynthesis as ImageGeneration
 from dashscope.api_entities.dashscope_response import Message
 from PIL import Image
 

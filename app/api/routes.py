@@ -9,18 +9,30 @@ from app.core.background import apply_background
 from app.core.curve_processor import apply_curves
 from app.core.image_analyzer import analyze_photo
 from app.core.image_gen import edit_image
-from app.core.image_processor import apply_basic_edits
+from app.core.image_processor import apply_basic_edits, apply_extended_edits
 from app.core.param_advisor import suggest_params
 from app.core.portrait import apply_portrait
 from app.core.prompt_store import (
     create_prompt, delete_prompt, get_categories,
     list_prompts, update_prompt,
 )
+from app.core.preset_store import (
+    create_preset as _create_preset,
+    delete_preset as _delete_preset,
+    get_categories as _get_preset_categories,
+    get_preset,
+    list_presets,
+    update_preset as _update_preset,
+)
+from app.core.reference_analyzer import analyze_reference
 from app.types.models import (
     AIEditRequest, AnalyzeRequest, AnalyzeResponse,
-    CurrentParams, CurveParams, EditResponse, ManualEditRequest, Prompt,
-    PromptCreate, PromptUpdate, StyleSuggestion,
-    SuggestRequest, SuggestResponse,
+    CurrentParams, CurveParams, EditResponse,
+    ExtendedEditParams,
+    ManualEditRequest, Preset, PresetCreate, PresetUpdate,
+    Prompt, PromptCreate, PromptUpdate,
+    ReferenceAnalyzeRequest, ReferenceAnalyzeResponse,
+    StyleSuggestion, SuggestRequest, SuggestResponse,
 )
 
 router = APIRouter()
@@ -82,6 +94,7 @@ async def manual_edit(request: ManualEditRequest):
         with Image.open(src) as img:
             result = img.convert("RGB")
             result = apply_basic_edits(result, request.edit_params)
+            result = apply_extended_edits(result, request.extended_params)
             result = apply_portrait(result, request.portrait_params)
             result = apply_background(result, request.background_params)
             result = apply_curves(result, request.curve_params)
@@ -89,7 +102,6 @@ async def manual_edit(request: ManualEditRequest):
             out_name = f"edited_{uuid.uuid4().hex[:10]}.jpg"
             out_path = OUTPUT_DIR / out_name
 
-            # Preserve RGBA for background-removed images
             if result.mode == "RGBA":
                 out_name = out_name.replace(".jpg", ".png")
                 out_path = OUTPUT_DIR / out_name
@@ -204,4 +216,78 @@ async def prompts_update(prompt_id: str, data: PromptUpdate):
 async def prompts_delete(prompt_id: str):
     if not delete_prompt(prompt_id):
         raise HTTPException(404, "提示词不存在")
+    return {"ok": True}
+
+
+# ── Reference image analysis ──────────────────────────────────────────
+
+@router.post("/analyze-reference", response_model=ReferenceAnalyzeResponse)
+async def analyze_reference_image(request: ReferenceAnalyzeRequest):
+    src = UPLOAD_DIR / request.filename
+    if not src.exists():
+        raise HTTPException(404, "图片不存在，请重新上传")
+
+    try:
+        raw = await asyncio.to_thread(analyze_reference, src)
+
+        params_dict = {k: v for k, v in raw.items()
+                       if k not in ("curve_params", "style_name", "explanation")}
+        curve_dict = raw.get("curve_params", {})
+
+        return ReferenceAnalyzeResponse(
+            params=CurrentParams(**params_dict),
+            curve_params=CurveParams(**curve_dict),
+            style_name=raw.get("style_name", "参考风格"),
+            explanation=raw.get("explanation", ""),
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"参考图分析失败：{e}")
+
+
+# ── Parameter preset library ──────────────────────────────────────────
+
+@router.get("/presets")
+async def presets_list(search: str = "", category: str = ""):
+    return {
+        "presets": list_presets(search, category),
+        "categories": _get_preset_categories(),
+    }
+
+
+@router.post("/presets", response_model=Preset)
+async def presets_create(data: PresetCreate):
+    if not data.name.strip():
+        raise HTTPException(400, "名称不能为空")
+    return _create_preset(
+        data.name,
+        data.params.model_dump(),
+        data.curve_params.model_dump(),
+        data.category,
+        data.tags,
+    )
+
+
+@router.put("/presets/{preset_id}", response_model=Preset)
+async def presets_update(preset_id: str, data: PresetUpdate):
+    item = _update_preset(
+        preset_id,
+        name=data.name,
+        params=data.params.model_dump() if data.params else None,
+        curve_params=data.curve_params.model_dump() if data.curve_params else None,
+        category=data.category,
+        tags=data.tags,
+    )
+    if item is None:
+        raise HTTPException(404, "预设不存在")
+    return item
+
+
+@router.delete("/presets/{preset_id}")
+async def presets_delete(preset_id: str):
+    if not _delete_preset(preset_id):
+        raise HTTPException(404, "预设不存在")
     return {"ok": True}

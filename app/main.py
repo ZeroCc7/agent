@@ -13,6 +13,7 @@ app = FastAPI(title="AI 照片美化", description="Intelligent photo retouching
 
 Path("uploads").mkdir(exist_ok=True)
 Path("outputs").mkdir(exist_ok=True)
+Path("data").mkdir(exist_ok=True)
 
 app.include_router(router, prefix="/api")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
