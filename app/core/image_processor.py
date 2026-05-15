@@ -84,22 +84,23 @@ def _is_identity_extended(params: ExtendedEditParams) -> bool:
 def _adjust_tonal_range(
     arr: np.ndarray, highlights: int, shadows: int, whites: int, blacks: int
 ) -> np.ndarray:
-    lut = np.arange(256, dtype=np.float32)
+    original = np.arange(256, dtype=np.float32)
+    lut = original.copy()
 
     if blacks != 0:
-        mask = np.clip((64.0 - lut) / 64.0, 0, 1) ** 2
+        mask = np.clip((64.0 - original) / 64.0, 0, 1) ** 2
         lut += blacks * 0.5 * mask
 
     if shadows != 0:
-        mask = np.clip((128.0 - lut) / 128.0, 0, 1)
+        mask = np.clip((128.0 - original) / 128.0, 0, 1)
         lut += shadows * 0.4 * mask
 
     if highlights != 0:
-        mask = np.clip((lut - 128.0) / 127.0, 0, 1)
+        mask = np.clip((original - 128.0) / 127.0, 0, 1)
         lut += highlights * 0.4 * mask
 
     if whites != 0:
-        mask = np.clip((lut - 192.0) / 63.0, 0, 1) ** 2
+        mask = np.clip((original - 192.0) / 63.0, 0, 1) ** 2
         lut += whites * 0.5 * mask
 
     lut = lut.clip(0, 255).astype(np.uint8)
@@ -136,7 +137,7 @@ def _apply_vignette(img: Image.Image, vignette: int) -> Image.Image:
     dist = np.sqrt(((X - w / 2.0) / (w / 2.0)) ** 2 + ((Y - h / 2.0) / (h / 2.0)) ** 2)
     center_mask = np.clip(1.0 - dist, 0, 1) ** 2
     factor = vignette / 100.0
-    blend = (1.0 + factor * (1.0 - center_mask))[:, :, np.newaxis]
+    blend = (1.0 - factor * (1.0 - center_mask))[:, :, np.newaxis]
     return Image.fromarray(np.clip(arr * blend, 0, 255).astype(np.uint8))
 
 

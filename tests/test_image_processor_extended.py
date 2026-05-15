@@ -60,21 +60,21 @@ def test_clarity_positive_increases_contrast():
     result = apply_extended_edits(img, ExtendedEditParams(clarity=40))
     in_std = np.array(img).std()
     out_std = np.array(result).std()
-    assert out_std >= in_std
+    assert out_std > in_std
 
 
-def test_vignette_negative_darkens_corners():
+def test_vignette_positive_darkens_corners():
     img = _solid(200, 200, 200, size=200)
-    result = apply_extended_edits(img, ExtendedEditParams(vignette=-80))
+    result = apply_extended_edits(img, ExtendedEditParams(vignette=80))
     arr = np.array(result).astype(float)
     center = arr[90:110, 90:110].mean()
     corner = arr[0:20, 0:20].mean()
     assert corner < center
 
 
-def test_vignette_positive_brightens_corners():
+def test_vignette_negative_brightens_corners():
     img = _solid(100, 100, 100, size=200)
-    result = apply_extended_edits(img, ExtendedEditParams(vignette=80))
+    result = apply_extended_edits(img, ExtendedEditParams(vignette=-80))
     arr = np.array(result).astype(float)
     center = arr[90:110, 90:110].mean()
     corner = arr[0:20, 0:20].mean()
@@ -92,4 +92,5 @@ def test_split_toning_shadow_shifts_dark_pixels():
     result = apply_extended_edits(
         img, ExtendedEditParams(shadow_tint=240, shadow_tint_strength=80)
     )
-    assert not np.array_equal(np.array(img), np.array(result))
+    # hue=240 is blue — blue channel should increase in dark pixels
+    assert np.array(result)[:, :, 2].mean() > np.array(img)[:, :, 2].mean()
