@@ -14,7 +14,7 @@ DATA_FILE = Path("data/presets.json")
 
 
 def _now() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+    return datetime.now().isoformat(timespec="microseconds")
 
 
 def _load() -> List[dict]:
