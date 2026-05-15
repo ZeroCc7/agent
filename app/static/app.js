@@ -596,6 +596,111 @@ async function saveToLibrary(event, style, promptText, description) {
   }
 }
 
+// ── Reference image analysis ──────────────────────────────────────────
+let _referenceFilename = null;
+let _referenceParams   = null;
+let _referenceCurves   = null;
+
+async function handleReferenceUpload(file) {
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  showLoading('上传参考图...');
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || '上传失败');
+    _referenceFilename = data.filename;
+    document.getElementById('ref-thumb').src = `/uploads/${data.filename}?t=${Date.now()}`;
+    await analyzeReferenceImage();
+  } catch (err) {
+    alert('上传失败：' + err.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+async function analyzeReferenceImage() {
+  showLoading('AI 分析参考图风格...');
+  try {
+    const res = await fetch('/api/analyze-reference', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: _referenceFilename }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || '分析失败');
+
+    _referenceParams = data.params;
+    _referenceCurves = data.curve_params;
+
+    document.getElementById('ref-style-name').textContent = data.style_name;
+    document.getElementById('ref-explanation').textContent = data.explanation;
+    document.getElementById('ref-preset-name').value = data.style_name;
+    document.getElementById('ref-result').classList.remove('hidden');
+    document.getElementById('ref-save-dialog').classList.add('hidden');
+    const saveBtn = document.getElementById('ref-save-btn');
+    if (saveBtn) { saveBtn.textContent = '保存预设'; saveBtn.disabled = false; }
+  } catch (err) {
+    alert('参考图分析失败：' + err.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+function applyReferenceParams() {
+  if (!_referenceParams) return;
+  applyParamsToSliders(_referenceParams);
+  _splitToning = {
+    shadow_tint:             _referenceParams.shadow_tint             || 0,
+    shadow_tint_strength:    _referenceParams.shadow_tint_strength    || 0,
+    highlight_tint:          _referenceParams.highlight_tint          || 0,
+    highlight_tint_strength: _referenceParams.highlight_tint_strength || 0,
+  };
+  if (_curveEditor && _referenceCurves) _curveEditor.setData(_referenceCurves);
+}
+
+function generateFromReference() {
+  if (!_referenceParams) return;
+  const explanation = document.getElementById('ref-explanation').textContent;
+  document.getElementById('ai-instruction').value = explanation;
+  const aiTabBtn = document.querySelector('.tab[data-tab="ai"]');
+  if (aiTabBtn) switchTab(aiTabBtn, 'ai');
+}
+
+function openSavePresetDialog() {
+  document.getElementById('ref-save-dialog').classList.remove('hidden');
+  document.getElementById('ref-preset-name').focus();
+}
+
+function closeSavePresetDialog() {
+  document.getElementById('ref-save-dialog').classList.add('hidden');
+}
+
+async function confirmSavePreset() {
+  if (!_referenceParams || !_referenceCurves) return;
+  const name = document.getElementById('ref-preset-name').value.trim();
+  const category = document.getElementById('ref-preset-category').value.trim();
+  if (!name) { alert('请输入预设名称'); return; }
+
+  const res = await fetch('/api/presets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name,
+      category,
+      tags: [],
+      params: _referenceParams,
+      curve_params: _referenceCurves,
+    }),
+  });
+  if (!res.ok) { const d = await res.json(); alert(d.detail || '保存失败'); return; }
+
+  closeSavePresetDialog();
+  const saveBtn = document.getElementById('ref-save-btn');
+  if (saveBtn) { saveBtn.textContent = '✓ 已保存'; saveBtn.disabled = true; }
+}
+
 function showLoading(text = '处理中...') {
   document.getElementById('loading-text').textContent = text;
   document.getElementById('loading').classList.remove('hidden');

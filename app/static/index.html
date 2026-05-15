@@ -199,6 +199,45 @@
               </div>
             </div>
 
+            <!-- Reference image panel -->
+            <div class="control-group">
+              <div class="collapsible-header" onclick="toggleCollapse('ref-body', this)">
+                <h4>参考图</h4>
+                <span class="collapse-arrow">▸</span>
+              </div>
+              <div id="ref-body" class="collapsible-body hidden">
+                <p class="ref-hint">上传风格参考图，AI 提取参数填入滑块</p>
+                <button class="btn-outline small" onclick="document.getElementById('ref-input').click()">
+                  上传参考图
+                </button>
+                <input type="file" id="ref-input" accept="image/jpeg,image/png,image/webp"
+                  style="display:none" onchange="handleReferenceUpload(this.files[0])">
+
+                <div id="ref-result" class="ref-result hidden">
+                  <div class="ref-result-inner">
+                    <img id="ref-thumb" class="ref-thumb" alt="">
+                    <div class="ref-info">
+                      <div class="ref-style-name" id="ref-style-name"></div>
+                      <div class="ref-explanation" id="ref-explanation"></div>
+                    </div>
+                  </div>
+                  <div class="ref-actions">
+                    <button class="btn-ghost small" onclick="applyReferenceParams()">应用参数</button>
+                    <button class="btn-ghost small" onclick="generateFromReference()">AI 生成</button>
+                    <button class="btn-ghost small" id="ref-save-btn" onclick="openSavePresetDialog()">保存预设</button>
+                  </div>
+                  <div id="ref-save-dialog" class="ref-save-dialog hidden">
+                    <input type="text" id="ref-preset-name" placeholder="预设名称...">
+                    <input type="text" id="ref-preset-category" placeholder="分类（可选）">
+                    <div class="ref-save-btns">
+                      <button class="btn-primary small" onclick="confirmSavePreset()">保存</button>
+                      <button class="btn-ghost small" onclick="closeSavePresetDialog()">取消</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Color curve editor -->
             <div class="control-group curve-section">
               <h4>色彩曲线</h4>
