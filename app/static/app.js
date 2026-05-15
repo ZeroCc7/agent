@@ -239,6 +239,7 @@ function renderSuggestions(suggestions) {
     const escapedPrompt = s.prompt.replace(/'/g, "\\'").replace(/"/g, '&quot;');
     const escapedStyle = s.style.replace(/'/g, "\\'");
     const escapedDesc = s.description.replace(/'/g, "\\'");
+    card.title = s.description;
     card.innerHTML =
       `<div class="card-style">${s.style}</div>` +
       `<div class="card-desc">${s.description}</div>` +
