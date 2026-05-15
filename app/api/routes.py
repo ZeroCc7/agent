@@ -20,7 +20,6 @@ from app.core.preset_store import (
     create_preset as _create_preset,
     delete_preset as _delete_preset,
     get_categories as _get_preset_categories,
-    get_preset,
     list_presets,
     update_preset as _update_preset,
 )
@@ -232,7 +231,7 @@ async def analyze_reference_image(request: ReferenceAnalyzeRequest):
 
         params_dict = {k: v for k, v in raw.items()
                        if k not in ("curve_params", "style_name", "explanation")}
-        curve_dict = raw.get("curve_params", {})
+        curve_dict = raw.get("curve_params") or {}
 
         return ReferenceAnalyzeResponse(
             params=CurrentParams(**params_dict),
