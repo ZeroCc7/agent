@@ -13,10 +13,16 @@
         <h1>AI 照片美化</h1>
         <p>上传照片，轻松美化日常生活照片</p>
       </div>
-      <button class="btn-lib" onclick="openPromptLibrary()">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
-        提示词库
-      </button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-lib" onclick="openPresetLibrary()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          预设库
+        </button>
+        <button class="btn-lib" onclick="openPromptLibrary()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          提示词库
+        </button>
+      </div>
     </div>
   </header>
 
@@ -368,6 +374,28 @@
               <button class="btn-outline" onclick="useCurrentPrompt()">使用此提示词</button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preset Library Modal -->
+  <div id="preset-modal" class="modal-overlay hidden" onclick="presetModalOverlayClick(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>预设库</h3>
+        <button class="modal-close" onclick="closePresetLibrary()">✕</button>
+      </div>
+      <div class="modal-toolbar">
+        <input type="text" id="preset-search" placeholder="搜索预设名称或标签..."
+          oninput="filterPresets()" autocomplete="off">
+        <select id="preset-category" onchange="filterPresets()">
+          <option value="">全部分类</option>
+        </select>
+      </div>
+      <div class="modal-body-single">
+        <div class="preset-list" id="preset-list">
+          <div class="list-empty">加载中...</div>
         </div>
       </div>
     </div>

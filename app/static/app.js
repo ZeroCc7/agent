@@ -579,6 +579,122 @@ function useCurrentPrompt() {
   closePromptLibrary();
 }
 
+// ── Preset Library ────────────────────────────────────────────────────
+let _libPresets = [];
+
+async function openPresetLibrary() {
+  document.getElementById('preset-modal').classList.remove('hidden');
+  await loadPresets();
+}
+
+function closePresetLibrary() {
+  document.getElementById('preset-modal').classList.add('hidden');
+}
+
+function presetModalOverlayClick(e) {
+  if (e.target === document.getElementById('preset-modal')) closePresetLibrary();
+}
+
+async function loadPresets() {
+  const search = document.getElementById('preset-search').value;
+  const category = document.getElementById('preset-category').value;
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  if (category) params.set('category', category);
+
+  const res = await fetch('/api/presets?' + params);
+  const data = await res.json();
+  _libPresets = data.presets || [];
+
+  const sel = document.getElementById('preset-category');
+  const currentCat = sel.value;
+  sel.innerHTML = '<option value="">全部分类</option>';
+  (data.categories || []).forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    if (c === currentCat) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  renderPresetList(_libPresets);
+}
+
+function filterPresets() { loadPresets(); }
+
+function renderPresetList(presets) {
+  const el = document.getElementById('preset-list');
+  if (!presets.length) {
+    el.innerHTML = '<div class="list-empty">暂无预设。上传参考图分析后可保存预设。</div>';
+    return;
+  }
+  el.innerHTML = '';
+  presets.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'preset-card';
+    const tagsHtml = (p.tags || []).length
+      ? `<div class="pc-tags">${p.tags.map(t => `<span class="pc-tag">${t}</span>`).join('')}</div>`
+      : '';
+    div.innerHTML =
+      `<div class="pc-header">
+        <span class="pc-name">${p.name}</span>
+        ${p.category ? `<span class="pc-cat">${p.category}</span>` : ''}
+      </div>
+      ${tagsHtml}
+      <div class="preset-apply-row">
+        <button class="btn-primary small" onclick="applyPresetById('${p.id}','replace')">覆盖应用</button>
+        <button class="btn-ghost small" onclick="applyPresetById('${p.id}','blend')">叠加应用</button>
+        <button class="btn-danger small" onclick="deletePresetById('${p.id}')">删除</button>
+      </div>`;
+    el.appendChild(div);
+  });
+}
+
+function applyPresetById(id, mode) {
+  const p = _libPresets.find(p => p.id === id);
+  if (!p) return;
+  const params = p.params;
+  const curves = p.curve_params;
+
+  if (mode === 'replace') {
+    applyParamsToSliders(params);
+    _splitToning = {
+      shadow_tint:             params.shadow_tint             || 0,
+      shadow_tint_strength:    params.shadow_tint_strength    || 0,
+      highlight_tint:          params.highlight_tint          || 0,
+      highlight_tint_strength: params.highlight_tint_strength || 0,
+    };
+    if (_curveEditor) _curveEditor.setData(curves);
+  } else {
+    const avg = (a, b) => Math.round((a + b) / 2);
+    const cur = getCurrentSliderValues();
+    const blended = {};
+    ['brightness','contrast','saturation','sharpness','color_temp',
+     'highlights','shadows','whites','blacks','vibrance','clarity','vignette','grain','smooth_level']
+      .forEach(k => {
+        if (params[k] !== undefined) blended[k] = avg(cur[k] ?? 0, params[k]);
+      });
+    blended.smooth_skin   = (cur.smooth_skin   || false) || (params.smooth_skin   || false);
+    blended.brighten_skin = (cur.brighten_skin  || false) || (params.brighten_skin || false);
+    applyParamsToSliders(blended);
+    _splitToning = {
+      shadow_tint:             params.shadow_tint || 0,
+      shadow_tint_strength:    avg(_splitToning.shadow_tint_strength,    params.shadow_tint_strength    || 0),
+      highlight_tint:          params.highlight_tint || 0,
+      highlight_tint_strength: avg(_splitToning.highlight_tint_strength, params.highlight_tint_strength || 0),
+    };
+    if (_curveEditor) _curveEditor.setData(curves);
+  }
+
+  closePresetLibrary();
+}
+
+async function deletePresetById(id) {
+  if (!confirm('确认删除这个预设？')) return;
+  const res = await fetch(`/api/presets/${id}`, { method: 'DELETE' });
+  if (!res.ok) { alert('删除失败'); return; }
+  await loadPresets();
+}
+
 // Save an AI-generated suggestion straight to the library
 async function saveToLibrary(event, style, promptText, description) {
   event.stopPropagation();
