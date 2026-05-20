@@ -80,6 +80,7 @@
             <button class="tab active" data-tab="manual" onclick="switchTab(this,'manual')">手动调整</button>
             <button class="tab" data-tab="ai" onclick="switchTab(this,'ai')">AI 智能编辑</button>
             <button class="tab" data-tab="ref" onclick="switchTab(this,'ref')">参考图</button>
+            <button class="tab" data-tab="agent" onclick="switchTab(this,'agent')">Agent 修图</button>
           </div>
 
           <!-- Manual controls -->
@@ -274,6 +275,47 @@
             <div id="ai-explanation" class="ai-explanation hidden"></div>
           </div>
 
+          <!-- Agent Mode Panel -->
+          <div id="panel-agent" class="tab-panel hidden">
+            <div class="section-card">
+              <h3 style="margin:0 0 8px">Agent 智能修图</h3>
+              <p style="color:#aaa;font-size:13px;margin:0 0 14px">AI 自动迭代优化，每轮由审查 Agent 评分，直到满意为止（最多5轮）</p>
+
+              <label style="font-size:13px;color:#ccc">修图指令</label>
+              <input id="agentInstruction" type="text" placeholder="例如：让照片更暖更通透"
+                     style="width:100%;margin-top:6px;padding:8px 10px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#fff;font-size:14px;box-sizing:border-box">
+
+              <button id="agentStartBtn" onclick="startAgentEdit()"
+                      style="margin-top:12px;width:100%;padding:10px;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:8px;color:#fff;font-size:14px;cursor:pointer;font-weight:600">
+                开始 Agent 修图
+              </button>
+            </div>
+
+            <div id="agentProgress" class="section-card" style="display:none">
+              <h4 style="margin:0 0 12px;color:#e5e7eb">修图进度</h4>
+              <div id="agentRounds"></div>
+            </div>
+
+            <div id="agentResult" class="section-card" style="display:none">
+              <h4 style="margin:0 0 12px;color:#e5e7eb">最终结果</h4>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div>
+                  <p style="font-size:12px;color:#6b7280;margin:0 0 6px">原图</p>
+                  <img id="agentOriginalPreview" style="width:100%;border-radius:8px">
+                </div>
+                <div>
+                  <p style="font-size:12px;color:#6b7280;margin:0 0 6px">最佳结果</p>
+                  <img id="agentBestPreview" style="width:100%;border-radius:8px">
+                </div>
+              </div>
+              <p id="agentBestInfo" style="margin-top:10px;font-size:13px;color:#9ca3af"></p>
+              <button onclick="applyAgentResult()"
+                      style="margin-top:10px;padding:8px 18px;background:#059669;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:14px">
+                应用此结果
+              </button>
+            </div>
+          </div>
+
           <!-- Reference image tab -->
           <div id="panel-ref" class="tab-panel hidden">
             <div class="ref-upload-zone" id="ref-drop-zone"
@@ -421,5 +463,114 @@
 
   <script src="/static/curve_editor.js?v=5"></script>
   <script src="/static/app.js?v=5"></script>
+  <script>
+let agentBestImageUrl = null;
+
+function startAgentEdit() {
+  const instruction = document.getElementById('agentInstruction').value.trim();
+  if (!instruction) { alert('请输入修图指令'); return; }
+  if (!currentFilename) { alert('请先上传图片'); return; }
+
+  document.getElementById('agentProgress').style.display = 'block';
+  document.getElementById('agentResult').style.display = 'none';
+  document.getElementById('agentRounds').innerHTML = '';
+  document.getElementById('agentStartBtn').disabled = true;
+  document.getElementById('agentStartBtn').textContent = '修图中...';
+  agentBestImageUrl = null;
+
+  const body = { filename: currentFilename, instruction };
+  if (typeof _referenceFilename !== 'undefined' && _referenceFilename) {
+    body.reference_filename = _referenceFilename;
+  }
+
+  fetch('/api/agent/edit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(async res => {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop();
+      for (const part of parts) {
+        if (part.startsWith('data: ')) {
+          try { handleAgentEvent(JSON.parse(part.slice(6))); } catch(e) {}
+        }
+      }
+    }
+  }).catch(err => {
+    alert('Agent 修图失败: ' + err.message);
+  }).finally(() => {
+    document.getElementById('agentStartBtn').disabled = false;
+    document.getElementById('agentStartBtn').textContent = '开始 Agent 修图';
+  });
+}
+
+function handleAgentEvent(evt) {
+  if (evt.type === 'progress' && evt.status === 'editing') {
+    _addRoundCard(evt.round, '修图中...', null, null, null, false);
+  } else if (evt.type === 'progress' && evt.status === 'reviewing') {
+    _updateRoundStatus(evt.round, '审查中...');
+  } else if (evt.type === 'progress' && evt.status === 'done_round') {
+    _updateRoundCard(evt.round, evt.explanation, evt.score, evt.image_url, evt.suggestions, evt.is_satisfied);
+  } else if (evt.type === 'done') {
+    agentBestImageUrl = evt.image_url;
+    document.getElementById('agentResult').style.display = 'block';
+    document.getElementById('agentOriginalPreview').src = '/uploads/' + currentFilename;
+    document.getElementById('agentBestPreview').src = evt.image_url;
+    document.getElementById('agentBestInfo').textContent =
+      `最佳结果：第 ${evt.best_round} 轮，综合评分 ${evt.final_score.toFixed(1)} / 10`;
+  }
+}
+
+function _addRoundCard(round, statusText, score, imageUrl, suggestions, satisfied) {
+  if (document.getElementById('round-card-' + round)) return;
+  const div = document.createElement('div');
+  div.id = 'round-card-' + round;
+  div.style.cssText = 'background:#1e1e1e;border-radius:8px;padding:12px;margin-bottom:10px;border:1px solid #333';
+  div.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="font-weight:bold;color:#a78bfa">第 ${round} 轮</span>
+      <span id="round-status-${round}" style="font-size:13px;color:#6b7280">${statusText}</span>
+      <span id="round-score-${round}" style="margin-left:auto;font-size:13px"></span>
+    </div>
+    <div id="round-body-${round}"></div>`;
+  document.getElementById('agentRounds').appendChild(div);
+}
+
+function _updateRoundStatus(round, text) {
+  const el = document.getElementById('round-status-' + round);
+  if (el) el.textContent = text;
+}
+
+function _updateRoundCard(round, explanation, score, imageUrl, suggestions, satisfied) {
+  _addRoundCard(round, explanation || '', score, imageUrl, suggestions, satisfied);
+  document.getElementById('round-status-' + round).textContent = explanation || '';
+  const scoreEl = document.getElementById('round-score-' + round);
+  if (score !== null) {
+    scoreEl.textContent = `${score.toFixed(1)} / 10${satisfied ? ' ✓' : ''}`;
+    scoreEl.style.color = satisfied ? '#34d399' : score >= 7 ? '#fbbf24' : '#f87171';
+  }
+  const body = document.getElementById('round-body-' + round);
+  let html = imageUrl ? `<img src="${imageUrl}" style="width:100%;max-height:180px;object-fit:cover;border-radius:6px">` : '';
+  if (suggestions && Object.keys(suggestions).length) {
+    html += `<div style="margin-top:8px;font-size:12px;color:#9ca3af;line-height:1.6">`;
+    for (const [, v] of Object.entries(suggestions)) html += `<div>· ${v}</div>`;
+    html += `</div>`;
+  }
+  body.innerHTML = html;
+}
+
+function applyAgentResult() {
+  if (!agentBestImageUrl) return;
+  const resultImg = document.getElementById('result-img');
+  if (resultImg) { resultImg.src = agentBestImageUrl; resultImg.style.display = 'block'; }
+}
+  </script>
 </body>
 </html>
