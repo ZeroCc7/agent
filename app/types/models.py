@@ -193,3 +193,60 @@ class PresetUpdate(BaseModel):
     curve_params: Optional[CurveParams] = None
     category: Optional[str] = None
     tags: Optional[List[str]] = None
+
+
+# ── Agent loop ────────────────────────────────────────────────────────
+
+class AgentEditOutput(BaseModel):
+    """Parameters output by EditingAgent — fed directly into the apply pipeline."""
+    edit_params: EditParams = Field(default_factory=EditParams)
+    extended_params: ExtendedEditParams = Field(default_factory=ExtendedEditParams)
+    portrait_params: PortraitParams = Field(default_factory=PortraitParams)
+    background_params: BackgroundParams = Field(default_factory=BackgroundParams)
+    curve_params: CurveParams = Field(default_factory=CurveParams)
+    explanation: str = ""
+
+
+class ReviewScore(BaseModel):
+    visual_quality: float = Field(ge=0, le=10)
+    instruction_match: float = Field(ge=0, le=10)
+    reference_match: Optional[float] = Field(None, ge=0, le=10)
+    suggestions: dict = Field(default_factory=dict)
+
+    @property
+    def overall(self) -> float:
+        if self.reference_match is not None:
+            return (
+                self.visual_quality * 0.25
+                + self.instruction_match * 0.40
+                + self.reference_match * 0.35
+            )
+        return self.visual_quality * 0.35 + self.instruction_match * 0.65
+
+    @property
+    def is_satisfied(self) -> bool:
+        return self.overall >= 8.0
+
+
+class AgentIteration(BaseModel):
+    round: int
+    image_filename: str
+    params: AgentEditOutput
+    scores: dict  # keys: visual_quality, instruction_match, reference_match, overall
+    suggestions: dict
+    is_satisfied: bool
+
+
+class AgentSession(BaseModel):
+    session_id: str
+    instruction: str
+    created_at: str
+    has_reference: bool
+    iterations: List[AgentIteration] = []
+    best_round: int = 0
+
+
+class AgentEditRequest(BaseModel):
+    filename: str
+    instruction: str
+    reference_filename: Optional[str] = None
