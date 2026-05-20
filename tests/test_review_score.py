@@ -18,3 +18,10 @@ def test_is_satisfied_above_threshold():
 def test_is_satisfied_below_threshold():
     score = ReviewScore(visual_quality=7.0, instruction_match=7.0, reference_match=None)
     assert score.is_satisfied is False
+
+def test_overall_in_model_dump():
+    score = ReviewScore(visual_quality=8.0, instruction_match=9.0, reference_match=None)
+    dumped = score.model_dump()
+    assert "overall" in dumped
+    assert "is_satisfied" in dumped
+    assert dumped["is_satisfied"] is True

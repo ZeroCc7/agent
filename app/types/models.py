@@ -1,5 +1,5 @@
-from typing import List, Literal, Optional
-from pydantic import BaseModel, Field
+from typing import Dict, List, Literal, Optional
+from pydantic import BaseModel, computed_field, Field
 
 
 class EditParams(BaseModel):
@@ -211,8 +211,9 @@ class ReviewScore(BaseModel):
     visual_quality: float = Field(ge=0, le=10)
     instruction_match: float = Field(ge=0, le=10)
     reference_match: Optional[float] = Field(None, ge=0, le=10)
-    suggestions: dict = Field(default_factory=dict)
+    suggestions: Dict[str, str] = Field(default_factory=dict)
 
+    @computed_field
     @property
     def overall(self) -> float:
         if self.reference_match is not None:
@@ -223,6 +224,7 @@ class ReviewScore(BaseModel):
             )
         return self.visual_quality * 0.35 + self.instruction_match * 0.65
 
+    @computed_field
     @property
     def is_satisfied(self) -> bool:
         return self.overall >= 8.0
