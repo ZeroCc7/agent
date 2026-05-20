@@ -81,6 +81,7 @@
             <button class="tab" data-tab="ai" onclick="switchTab(this,'ai')">AI 智能编辑</button>
             <button class="tab" data-tab="ref" onclick="switchTab(this,'ref')">参考图</button>
             <button class="tab" data-tab="agent" onclick="switchTab(this,'agent')">Agent 修图</button>
+            <button class="tab" data-tab="history" onclick="switchTab(this,'history'); loadHistory();">历史记录</button>
           </div>
 
           <!-- Manual controls -->
@@ -313,6 +314,52 @@
                       style="margin-top:10px;padding:8px 18px;background:#059669;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:14px">
                 应用此结果
               </button>
+            </div>
+          </div>
+
+          <!-- History tab -->
+          <div id="panel-history" class="tab-panel hidden">
+            <div class="section-card" style="display:flex;justify-content:space-between;align-items:center">
+              <h3 style="margin:0">历史记录</h3>
+              <button onclick="loadHistory()"
+                      style="padding:6px 14px;background:#374151;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:13px">
+                刷新
+              </button>
+            </div>
+
+            <div id="historyList"></div>
+
+            <div id="historyDetail" style="display:none">
+              <div class="section-card">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+                  <button onclick="closeHistoryDetail()"
+                          style="padding:4px 10px;background:#374151;border:none;border-radius:5px;color:#fff;cursor:pointer">
+                    ← 返回
+                  </button>
+                  <h4 id="historyDetailTitle" style="margin:0;flex:1;color:#e5e7eb"></h4>
+                </div>
+
+                <div id="historyRoundGrid"
+                     style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px"></div>
+
+                <div id="historyCompare" style="display:none;margin-top:16px">
+                  <h4 style="margin:0 0 10px;color:#e5e7eb">版本对比</h4>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div style="text-align:center">
+                      <img id="compareLeft" style="width:100%;border-radius:8px">
+                      <p id="compareLeftLabel" style="font-size:12px;color:#9ca3af;margin-top:6px"></p>
+                    </div>
+                    <div style="text-align:center">
+                      <img id="compareRight" style="width:100%;border-radius:8px">
+                      <p id="compareRightLabel" style="font-size:12px;color:#9ca3af;margin-top:6px"></p>
+                    </div>
+                  </div>
+                  <button onclick="document.getElementById('historyCompare').style.display='none';compareLeftPending=null"
+                          style="margin-top:10px;padding:6px 14px;background:#374151;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:13px">
+                    关闭对比
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -570,6 +617,95 @@ function applyAgentResult() {
   if (!agentBestImageUrl) return;
   const resultImg = document.getElementById('result-img');
   if (resultImg) { resultImg.src = agentBestImageUrl; resultImg.style.display = 'block'; }
+}
+  </script>
+  <script>
+let compareLeftPending = null;
+
+async function loadHistory() {
+  const list = document.getElementById('historyList');
+  list.innerHTML = '<p style="color:#6b7280;padding:12px">加载中...</p>';
+  const res = await fetch('/api/agent/sessions');
+  const data = await res.json();
+  list.innerHTML = '';
+
+  if (!data.sessions.length) {
+    list.innerHTML = '<p style="color:#6b7280;padding:12px">暂无历史记录</p>';
+    return;
+  }
+
+  for (const s of data.sessions) {
+    const scoreText = s.best_score !== null ? ` · 最高分 ${s.best_score.toFixed(1)}` : '';
+    const div = document.createElement('div');
+    div.className = 'section-card';
+    div.style.cssText = 'display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:8px';
+    div.innerHTML = `
+      <div>
+        <div style="font-weight:600;color:#e5e7eb">${s.instruction}</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:3px">
+          ${new Date(s.created_at).toLocaleString()} · ${s.total_rounds} 轮${scoreText}
+        </div>
+      </div>
+      <span style="color:#7c3aed;font-size:22px;line-height:1">›</span>`;
+    div.onclick = () => openHistoryDetail(s.session_id, s.instruction);
+    list.appendChild(div);
+  }
+}
+
+async function openHistoryDetail(sessionId, instruction) {
+  const res = await fetch('/api/agent/sessions/' + sessionId);
+  const session = await res.json();
+
+  document.getElementById('historyDetail').style.display = 'block';
+  document.getElementById('historyDetailTitle').textContent = instruction;
+  document.getElementById('historyCompare').style.display = 'none';
+  compareLeftPending = null;
+
+  const grid = document.getElementById('historyRoundGrid');
+  grid.innerHTML = '';
+
+  for (const iter of session.iterations) {
+    const imageUrl = '/sessions/' + sessionId + '/' + iter.image_filename;
+    const overall = iter.scores.overall;
+    const isBest = iter.round === session.best_round;
+
+    const card = document.createElement('div');
+    card.style.cssText = `background:#1e1e1e;border-radius:8px;overflow:hidden;border:2px solid ${isBest ? '#7c3aed' : '#333'}`;
+    card.innerHTML = `
+      <img src="${imageUrl}" style="width:100%;height:110px;object-fit:cover;display:block">
+      <div style="padding:8px">
+        <div style="font-size:12px;color:#e5e7eb;font-weight:600">第${iter.round}轮 ${isBest ? '⭐' : ''}</div>
+        <div style="font-size:12px;color:#34d399">评分 ${overall.toFixed(1)}</div>
+        <button onclick="selectForCompare(${iter.round},'${imageUrl}')"
+                style="margin-top:6px;width:100%;padding:3px 0;font-size:11px;background:#374151;border:none;border-radius:4px;color:#d1d5db;cursor:pointer">
+          选择对比
+        </button>
+      </div>`;
+    grid.appendChild(card);
+  }
+  document.getElementById('historyDetail').scrollIntoView({ behavior: 'smooth' });
+}
+
+function selectForCompare(round, imageUrl) {
+  if (!compareLeftPending) {
+    compareLeftPending = { round, imageUrl };
+    document.getElementById('compareLeft').src = imageUrl;
+    document.getElementById('compareLeftLabel').textContent = `第${round}轮（点击另一张完成对比）`;
+    document.getElementById('compareRight').src = '';
+    document.getElementById('compareRightLabel').textContent = '请选择第二张';
+    document.getElementById('historyCompare').style.display = 'block';
+  } else {
+    document.getElementById('compareRight').src = imageUrl;
+    document.getElementById('compareRightLabel').textContent = `第${round}轮`;
+    document.getElementById('compareLeftLabel').textContent = `第${compareLeftPending.round}轮`;
+    compareLeftPending = null;
+  }
+}
+
+function closeHistoryDetail() {
+  document.getElementById('historyDetail').style.display = 'none';
+  document.getElementById('historyCompare').style.display = 'none';
+  compareLeftPending = null;
 }
   </script>
 </body>
