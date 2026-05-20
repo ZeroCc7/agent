@@ -9,27 +9,16 @@ let _compareDragging = false;
 
 // ── Init ──────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  const dropZone = document.getElementById('drop-zone');
   const fileInput = document.getElementById('file-input');
-
-  dropZone.addEventListener('dragover', e => {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-  });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    const file = e.dataTransfer.files[0];
-    if (file) uploadFile(file);
-  });
 
   fileInput.addEventListener('change', e => {
     if (e.target.files[0]) uploadFile(e.target.files[0]);
   });
 
+  initCurveEditor();
+
   // Auto-apply on slider / checkbox / select changes in manual panel
-  const manualPanel = document.getElementById('panel-manual');
+  const manualPanel = document.getElementById('cp-manual-body');
   manualPanel.addEventListener('input', e => {
     if (e.target.matches('input[type="range"]')) scheduleAutoApply();
   });
@@ -112,24 +101,20 @@ async function uploadFile(file) {
     currentFilename = data.filename;
     resultFilename = null;
 
-    const originalImg = document.getElementById('original-img');
-    const resultImg = document.getElementById('result-img');
-    originalImg.src = `/uploads/${data.filename}?t=${Date.now()}`;
-    resultImg.src = `/uploads/${data.filename}?t=${Date.now()}`;
+    document.getElementById('original-img').src = `/uploads/${data.filename}?t=${Date.now()}`;
 
-    document.getElementById('result-img').onload = () => {
-      document.querySelector('.result-wrap').classList.remove('has-result');
-    };
+    // Switch from welcome to editor panels
+    document.getElementById('upload-welcome').classList.add('hidden');
+    document.getElementById('orig-panel').classList.remove('hidden');
+    document.getElementById('result-panel').classList.remove('hidden');
 
+    // Reset result area
+    document.getElementById('result-img').src = '';
+    document.getElementById('result-img').classList.add('hidden');
+    document.getElementById('result-placeholder').classList.remove('hidden');
+    document.querySelector('.result-wrap').classList.remove('has-result');
     document.getElementById('download-btn').classList.add('hidden');
-    document.getElementById('ai-explanation').classList.add('hidden');
-    document.getElementById('suggestion-area').classList.add('hidden');
-    document.getElementById('suggestion-grid').innerHTML = '';
-    document.getElementById('ai-instruction').value = '';
-
-    document.getElementById('upload-section').classList.add('hidden');
-    document.getElementById('editor-section').classList.remove('hidden');
-    initCurveEditor();
+    resetCompare();
   } catch (err) {
     alert(err.message);
   } finally {
@@ -142,8 +127,17 @@ function reupload() {
   resultFilename = null;
   clearTimeout(_autoApplyTimer);
   resetCompare();
-  document.getElementById('editor-section').classList.add('hidden');
-  document.getElementById('upload-section').classList.remove('hidden');
+
+  // Switch back to welcome state
+  document.getElementById('upload-welcome').classList.remove('hidden');
+  document.getElementById('orig-panel').classList.add('hidden');
+  document.getElementById('result-panel').classList.add('hidden');
+  document.getElementById('original-img').src = '';
+  document.getElementById('result-img').src = '';
+  document.getElementById('result-img').classList.add('hidden');
+  document.getElementById('result-placeholder').classList.remove('hidden');
+  document.querySelector('.result-wrap').classList.remove('has-result');
+  document.getElementById('download-btn').classList.add('hidden');
   document.getElementById('file-input').value = '';
   resetControls();
 }
@@ -203,12 +197,20 @@ function getCurrentSliderValues() {
   };
 }
 
-// ── Tabs ──────────────────────────────────────────────────────────────
-function switchTab(btn, name) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
-  document.getElementById(`panel-${name}`).classList.remove('hidden');
+// ── Section accordion ─────────────────────────────────────────────────
+function toggleCpSection(bodyId, header) {
+  const body = document.getElementById(bodyId);
+  const isHidden = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !isHidden);
+  header.classList.toggle('open', isHidden);
+}
+
+function _expandSection(bodyId) {
+  const body = document.getElementById(bodyId);
+  if (!body || !body.classList.contains('hidden')) return;
+  body.classList.remove('hidden');
+  const hdr = body.previousElementSibling;
+  if (hdr && hdr.classList.contains('cp-hdr')) hdr.classList.add('open');
 }
 
 // ── Slider labels ─────────────────────────────────────────────────────
@@ -222,55 +224,6 @@ function toggleSection(id, checkbox) {
   if (el) el.classList.toggle('hidden', !checkbox.checked);
 }
 
-// ── AI parameter suggestion ───────────────────────────────────────────
-async function getSuggestion() {
-  const instruction = document.getElementById('assist-input').value.trim();
-  if (!instruction) { alert('请输入描述'); return; }
-
-  const btn = document.getElementById('assist-btn');
-  btn.textContent = '解读中...';
-  btn.disabled = true;
-
-  const current = {
-    brightness:        parseInt(document.getElementById('brightness').value),
-    contrast:          parseInt(document.getElementById('contrast').value),
-    saturation:        parseInt(document.getElementById('saturation').value),
-    sharpness:         parseInt(document.getElementById('sharpness').value),
-    color_temp:        parseInt(document.getElementById('colortemp').value),
-    smooth_skin:       document.getElementById('smooth-skin').checked,
-    smooth_level:      parseInt(document.getElementById('smooth-level').value),
-    brighten_skin:     document.getElementById('brighten-skin').checked,
-    background_action: document.getElementById('bg-action').value,
-  };
-
-  try {
-    const res = await fetch('/api/edit/suggest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instruction, current_params: current }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || '解读失败');
-
-    applyParamsToSliders(data.params);
-
-    if (data.curve_params && _curveEditor) {
-      _curveEditor.setData(data.curve_params);
-      // Switch to RGB tab so user sees the change
-      const rgbTab = document.querySelector('.curve-tab[data-ch="rgb"]');
-      if (rgbTab) switchCurveTab(rgbTab, 'rgb');
-    }
-
-    const el = document.getElementById('assist-explanation');
-    el.textContent = data.explanation || '';
-    el.classList.toggle('hidden', !data.explanation);
-  } catch (err) {
-    alert('AI 解读失败：' + err.message);
-  } finally {
-    btn.textContent = '解读';
-    btn.disabled = false;
-  }
-}
 
 function applyParamsToSliders(p) {
   const sliderMap = {
@@ -323,63 +276,6 @@ function applyParamsToSliders(p) {
   }
 }
 
-// ── Photo analysis ────────────────────────────────────────────────────
-async function analyzePhoto() {
-  if (!currentFilename) return;
-
-  const btn = document.getElementById('analyze-btn');
-  btn.disabled = true;
-  showLoading('AI 分析照片中...');
-
-  try {
-    const res = await fetch('/api/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: currentFilename }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || '分析失败');
-    renderSuggestions(data.suggestions);
-  } catch (err) {
-    alert('照片分析失败：' + err.message);
-  } finally {
-    btn.disabled = false;
-    hideLoading();
-  }
-}
-
-function renderSuggestions(suggestions) {
-  const grid = document.getElementById('suggestion-grid');
-  grid.innerHTML = '';
-
-  suggestions.forEach(s => {
-    const card = document.createElement('div');
-    card.className = 'suggestion-card';
-    // Escape for inline onclick attribute
-    const escapedPrompt = s.prompt.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-    const escapedStyle = s.style.replace(/'/g, "\\'");
-    const escapedDesc = s.description.replace(/'/g, "\\'");
-    card.title = s.description;
-    card.innerHTML =
-      `<div class="card-style">${s.style}</div>` +
-      `<div class="card-desc">${s.description}</div>` +
-      `<button class="pc-save-btn" onclick="saveToLibrary(event,'${escapedStyle}','${escapedPrompt}','${escapedDesc}')">保存到库</button>`;
-    card.addEventListener('click', e => {
-      if (!e.target.closest('.pc-save-btn')) selectSuggestion(card, s.prompt);
-    });
-    grid.appendChild(card);
-  });
-
-  document.getElementById('suggestion-area').classList.remove('hidden');
-  // Auto-select the first card
-  if (grid.firstChild) grid.firstChild.click();
-}
-
-function selectSuggestion(card, prompt) {
-  document.querySelectorAll('.suggestion-card').forEach(c => c.classList.remove('selected'));
-  card.classList.add('selected');
-  document.getElementById('ai-instruction').value = prompt;
-}
 
 // ── Manual edit ───────────────────────────────────────────────────────
 // Sliders go -60..60; backend EditParams expect Pillow enhancer values (1.0 = original)
@@ -440,45 +336,15 @@ async function applyManualEdit() {
   }
 }
 
-// ── AI edit ───────────────────────────────────────────────────────────
-async function applyAIEdit() {
-  if (!currentFilename) return;
-
-  const instruction = document.getElementById('ai-instruction').value.trim();
-  if (!instruction) { alert('请描述你想要的效果'); return; }
-
-  showLoading('AI 生图中，约需 20-40 秒...');
-  try {
-    const res = await fetch('/api/edit/ai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: currentFilename, instruction }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'AI 处理失败');
-
-    showResult(data.result_filename);
-
-    const explEl = document.getElementById('ai-explanation');
-    if (data.ai_explanation) {
-      explEl.textContent = 'AI 说：' + data.ai_explanation;
-      explEl.classList.remove('hidden');
-    } else {
-      explEl.classList.add('hidden');
-    }
-  } catch (err) {
-    alert(err.message);
-  } finally {
-    hideLoading();
-  }
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────
 function showResult(filename) {
   resultFilename = filename;
   const img = document.getElementById('result-img');
   img.src = `/outputs/${filename}?t=${Date.now()}`;
+  img.classList.remove('hidden');
   img.onload = () => {
+    document.getElementById('result-placeholder').classList.add('hidden');
     document.querySelector('.result-wrap').classList.add('has-result');
     initCompare();
   };
@@ -771,22 +637,6 @@ async function deletePresetById(id) {
   await loadPresets();
 }
 
-// Save an AI-generated suggestion straight to the library
-async function saveToLibrary(event, style, promptText, description) {
-  event.stopPropagation();
-  const btn = event.currentTarget;
-  const res = await fetch('/api/prompts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: style, prompt: promptText, category: 'AI生成', tags: [] }),
-  });
-  if (res.ok) {
-    btn.textContent = '✓ 已保存';
-    btn.disabled = true;
-  } else {
-    alert('保存失败');
-  }
-}
 
 // ── Reference image analysis ──────────────────────────────────────────
 let _referenceFilename = null;
@@ -831,12 +681,29 @@ async function analyzeReferenceImage() {
     document.getElementById('ref-preset-name').value = data.style_name;
     document.getElementById('ref-result').classList.remove('hidden');
     document.getElementById('ref-save-dialog').classList.add('hidden');
+    document.getElementById('ref-upload-area').classList.add('hidden');
     const saveBtn = document.getElementById('ref-save-btn');
-    if (saveBtn) { saveBtn.textContent = '保存预设'; saveBtn.disabled = false; }
+    if (saveBtn) { saveBtn.textContent = '保存为预设'; saveBtn.disabled = false; }
+    // Pre-fill agent instruction with reference style if field is empty
+    const agentInput = document.getElementById('agentInstruction');
+    if (agentInput && !agentInput.value.trim()) {
+      agentInput.value = data.explanation || data.style_name || '';
+    }
+    _updateAgentHint();
   } catch (err) {
     alert('参考图分析失败：' + err.message);
   } finally {
     hideLoading();
+  }
+}
+
+function _updateAgentHint() {
+  const el = document.getElementById('agent-hint');
+  if (!el) return;
+  if (_referenceFilename) {
+    el.innerHTML = '多轮自动迭代，每轮 AI 评分，满意即停（最多 5 轮）<br><span class="agent-ref-badge">已加载参考图，将以匹配参考风格为目标</span>';
+  } else {
+    el.textContent = '多轮自动迭代，每轮 AI 评分，满意即停（最多 5 轮）';
   }
 }
 
@@ -850,17 +717,31 @@ function applyReferenceParams() {
     highlight_tint_strength: _referenceParams.highlight_tint_strength || 0,
   };
   if (_curveEditor && _referenceCurves) _curveEditor.setData(_referenceCurves);
-  const manualBtn = document.querySelector('.tab[data-tab="manual"]');
-  if (manualBtn) switchTab(manualBtn, 'manual');
+  _expandSection('cp-manual-body');
   applyManualEdit();
 }
 
-function generateFromReference() {
+async function generateFromReference() {
   if (!_referenceParams) return;
-  const explanation = document.getElementById('ref-explanation').textContent;
-  document.getElementById('ai-instruction').value = explanation;
-  const aiTabBtn = document.querySelector('.tab[data-tab="ai"]');
-  if (aiTabBtn) switchTab(aiTabBtn, 'ai');
+  if (!currentFilename) { alert('请先上传图片'); return; }
+  const instruction = document.getElementById('ref-explanation').textContent;
+  if (!instruction) return;
+
+  showLoading('AI 生成效果图中，约需 20-40 秒...');
+  try {
+    const res = await fetch('/api/edit/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: currentFilename, instruction }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'AI 处理失败');
+    showResult(data.result_filename);
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    hideLoading();
+  }
 }
 
 async function compareStyle() {
@@ -898,8 +779,7 @@ async function compareStyle() {
       expEl.classList.remove('hidden');
     }
 
-    const manualBtn = document.querySelector('.tab[data-tab="manual"]');
-    if (manualBtn) switchTab(manualBtn, 'manual');
+    _expandSection('cp-manual-body');
     applyManualEdit();
   } catch (err) {
     alert('AI 比对失败：' + err.message);

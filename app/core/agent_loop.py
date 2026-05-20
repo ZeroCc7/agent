@@ -59,16 +59,35 @@ async def run_agent_loop(
     for round_num in range(1, MAX_ROUNDS + 1):
         yield _sse({"type": "progress", "round": round_num, "status": "editing", "session_id": session_id})
 
-        edit_output = await asyncio.to_thread(
-            run_editing_agent, original_img, instruction, reference_img, previous_output, previous_review,
-        )
-        edited_img = await asyncio.to_thread(_apply_params, original_img, edit_output)
+        try:
+            edit_output = await asyncio.to_thread(
+                run_editing_agent, original_img, instruction, reference_img, previous_output, previous_review,
+            )
+            edited_img = await asyncio.to_thread(_apply_params, original_img, edit_output)
 
-        yield _sse({"type": "progress", "round": round_num, "status": "reviewing", "session_id": session_id})
+            yield _sse({"type": "progress", "round": round_num, "status": "reviewing", "session_id": session_id})
 
-        review = await asyncio.to_thread(
-            run_review_agent, original_img, edited_img, instruction, reference_img, round_num,
-        )
+            review = await asyncio.to_thread(
+                run_review_agent, original_img, edited_img, instruction, reference_img, round_num,
+            )
+        except Exception as exc:
+            yield _sse({
+                "type": "error",
+                "round": round_num,
+                "message": f"第 {round_num} 轮处理失败：{exc}",
+            })
+            # 若已有历史轮次，返回目前最佳结果；否则终止
+            if best_image is not None:
+                best_filename = session.iterations[best_round - 1].image_filename
+                yield _sse({
+                    "type": "done",
+                    "session_id": session_id,
+                    "best_round": best_round,
+                    "final_score": round(best_score, 2),
+                    "image_b64": _to_b64(best_image),
+                    "image_url": f"/sessions/{session_id}/{best_filename}",
+                })
+            return
 
         overall = review.overall
         img_filename = _store.save_iteration_image(session_id, round_num, overall, edited_img)
@@ -113,6 +132,10 @@ async def run_agent_loop(
 
         if review.is_satisfied:
             break
+
+    if best_image is None:
+        yield _sse({"type": "error", "round": 0, "message": "所有轮次均失败，无法生成结果"})
+        return
 
     best_filename = session.iterations[best_round - 1].image_filename
     yield _sse({

@@ -3,424 +3,380 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI 照片美化</title>
-  <link rel="stylesheet" href="/static/style.css?v=5">
+  <title>AI Photo Studio</title>
+  <link rel="stylesheet" href="/static/style.css?v=9">
 </head>
 <body>
   <header>
     <div class="header-inner">
-      <div>
-        <h1>AI 照片美化</h1>
-        <p>上传照片，轻松美化日常生活照片</p>
+      <div class="brand">
+        <div class="brand-logo">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </div>
+        <span class="brand-name">AI Photo Studio</span>
+        <span class="brand-tagline">智能修图助手</span>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn-lib" onclick="openPresetLibrary()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      <div class="header-actions">
+        <button class="btn-secondary" onclick="openPresetLibrary()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
           预设库
         </button>
-        <button class="btn-lib" onclick="openPromptLibrary()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        <button class="btn-secondary" onclick="openPromptLibrary()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
           提示词库
+        </button>
+        <button class="btn-secondary" onclick="openHistoryModal()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          历史记录
         </button>
       </div>
     </div>
   </header>
 
   <main>
-    <!-- Upload section -->
-    <section id="upload-section">
-      <div id="drop-zone">
-        <div class="drop-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/>
-            <line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
+    <div class="editor-layout">
+
+      <!-- Image area -->
+      <div class="preview-area">
+
+        <!-- Welcome / upload state (spans both columns) -->
+        <div id="upload-welcome"
+             class="upload-welcome"
+             ondragover="event.preventDefault();this.classList.add('dragover')"
+             ondragleave="this.classList.remove('dragover')"
+             ondrop="event.preventDefault();this.classList.remove('dragover');const f=event.dataTransfer.files[0];if(f)uploadFile(f)"
+             onclick="document.getElementById('file-input').click()">
+          <div class="upload-icon">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <p class="upload-title">拖拽照片到这里，或点击上传</p>
+          <p class="upload-sub">JPG · PNG · WebP · 最大 50 MB</p>
         </div>
-        <p class="drop-title">拖拽照片到此处</p>
-        <p class="drop-sub">支持 JPG、PNG、WebP，最大 50MB</p>
-        <button class="btn-primary" onclick="document.getElementById('file-input').click()">选择照片</button>
         <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" style="display:none">
-      </div>
-    </section>
 
-    <!-- Editor section (shown after upload) -->
-    <section id="editor-section" class="hidden">
-      <div class="editor-layout">
-
-        <!-- Preview panels -->
-        <div class="preview-area">
-          <div class="preview-panel">
-            <div class="panel-label">原图</div>
-            <div class="img-wrap">
-              <img id="original-img" alt="原图">
-            </div>
-            <button class="btn-ghost reupload-btn" onclick="reupload()">重新上传</button>
+        <!-- Original panel (shown after upload) -->
+        <div class="image-panel hidden" id="orig-panel">
+          <div class="image-panel-header">
+            <span class="panel-label">原图</span>
+            <button id="reupload-btn" class="btn-ghost small" onclick="reupload()">重新上传</button>
           </div>
-          <div class="preview-panel">
-            <div class="panel-label">效果图</div>
-            <div class="img-wrap result-wrap">
-              <img id="original-overlay" class="compare-original hidden" alt="">
-              <img id="result-img" alt="效果图">
-              <div id="compare-divider" class="compare-divider hidden">
-                <div class="compare-line"></div>
-                <div class="compare-btn">⟺</div>
-              </div>
-              <span class="compare-label compare-label-l hidden" id="cmp-label-l">原图</span>
-              <span class="compare-label compare-label-r hidden" id="cmp-label-r">效果</span>
-              <div id="result-placeholder" class="result-placeholder">调整参数后点击「应用」</div>
-            </div>
-            <button id="download-btn" class="btn-primary hidden" onclick="downloadResult()">下载图片</button>
+          <div class="img-wrap">
+            <img id="original-img" alt="原图">
           </div>
         </div>
 
-        <!-- Controls -->
+        <!-- Result panel (shown after upload) -->
+        <div class="image-panel hidden" id="result-panel">
+          <div class="image-panel-header">
+            <span class="panel-label">效果图</span>
+            <button id="download-btn" class="btn-primary small hidden" onclick="downloadResult()">下载</button>
+          </div>
+          <div class="img-wrap result-wrap">
+            <img id="original-overlay" class="compare-original hidden" alt="">
+            <img id="result-img" class="hidden" alt="效果图">
+            <div id="compare-divider" class="compare-divider hidden">
+              <div class="compare-line"></div>
+              <div class="compare-btn">⟺</div>
+            </div>
+            <span class="compare-label compare-label-l hidden" id="cmp-label-l">原图</span>
+            <span class="compare-label compare-label-r hidden" id="cmp-label-r">效果</span>
+            <div id="result-placeholder" class="result-placeholder">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.3"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span>调整参数后点击「应用」</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+        <!-- Controls panel -->
         <div class="controls-panel">
-          <div class="tabs">
-            <button class="tab active" data-tab="manual" onclick="switchTab(this,'manual')">手动调整</button>
-            <button class="tab" data-tab="ai" onclick="switchTab(this,'ai')">AI 智能编辑</button>
-            <button class="tab" data-tab="ref" onclick="switchTab(this,'ref')">参考图</button>
-            <button class="tab" data-tab="agent" onclick="switchTab(this,'agent')">Agent 修图</button>
-            <button class="tab" data-tab="history" onclick="switchTab(this,'history'); loadHistory();">历史记录</button>
-          </div>
 
-          <!-- Manual controls -->
-          <div id="panel-manual" class="tab-panel">
-            <div class="control-group">
-              <h4>基础调整</h4>
-              <div class="slider-row">
-                <label>亮度</label>
-                <input type="range" id="brightness" min="-60" max="60" value="0" oninput="updateLabel(this)">
-                <span class="slider-val" id="brightness-val">0</span>
-              </div>
-              <div class="slider-row">
-                <label>对比度</label>
-                <input type="range" id="contrast" min="-60" max="60" value="0" oninput="updateLabel(this)">
-                <span class="slider-val" id="contrast-val">0</span>
-              </div>
-              <div class="slider-row">
-                <label>饱和度</label>
-                <input type="range" id="saturation" min="-60" max="60" value="0" oninput="updateLabel(this)">
-                <span class="slider-val" id="saturation-val">0</span>
-              </div>
-              <div class="slider-row">
-                <label>锐度</label>
-                <input type="range" id="sharpness" min="-60" max="60" value="0" oninput="updateLabel(this)">
-                <span class="slider-val" id="sharpness-val">0</span>
-              </div>
-              <div class="slider-row">
-                <label>色温 <small>冷↔暖</small></label>
-                <input type="range" id="colortemp" min="-100" max="100" value="0" oninput="updateLabel(this)">
-                <span class="slider-val" id="colortemp-val">0</span>
-              </div>
+          <!-- ① 参考图风格 -->
+          <div class="cp-section">
+            <div class="cp-title-bar">
+              <span class="cp-title">参考图风格</span>
+              <span class="cp-title-sub">核心入口</span>
             </div>
+            <div class="cp-body">
+              <div id="ref-upload-area"
+                   class="cp-ref-upload"
+                   onclick="document.getElementById('ref-input').click()"
+                   ondragover="event.preventDefault();this.classList.add('dragover')"
+                   ondragleave="this.classList.remove('dragover')"
+                   ondrop="event.preventDefault();this.classList.remove('dragover');handleReferenceUpload(event.dataTransfer.files[0])">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--text-3)">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <p class="cp-ref-upload-label">上传参考图</p>
+                <p class="cp-ref-upload-hint">AI 提取风格，一键匹配调色或生成效果图</p>
+              </div>
+              <input type="file" id="ref-input" accept="image/jpeg,image/png,image/webp"
+                style="display:none" onchange="handleReferenceUpload(this.files[0])">
 
-            <div class="control-group">
-              <h4>人像美化</h4>
-              <div class="toggle-row">
-                <label class="toggle-label">
-                  <input type="checkbox" id="smooth-skin" onchange="toggleSection('smooth-options', this)">
-                  <span>磨皮</span>
-                </label>
-              </div>
-              <div id="smooth-options" class="sub-options hidden">
-                <div class="slider-row">
-                  <label>程度</label>
-                  <input type="range" id="smooth-level" min="0" max="100" value="40" oninput="updateLabel(this)">
-                  <span class="slider-val" id="smooth-level-val">40</span>
+              <div id="ref-result" class="cp-ref-result hidden">
+                <div class="cp-ref-row">
+                  <img id="ref-thumb" class="cp-ref-thumb" alt="">
+                  <div class="cp-ref-info">
+                    <p class="cp-ref-name" id="ref-style-name"></p>
+                    <p class="cp-ref-desc" id="ref-explanation"></p>
+                  </div>
+                  <button class="btn-ghost small" onclick="document.getElementById('ref-input').click()">换图</button>
+                </div>
+                <div class="cp-ref-actions">
+                  <button class="btn-primary" onclick="applyReferenceParams()">匹配调色</button>
+                  <button class="btn-secondary" onclick="generateFromReference()">AI 生成效果图</button>
+                </div>
+                <button class="btn-ghost small w-full" onclick="compareStyle()" style="margin-top:6px">AI 比对微调</button>
+                <div id="ref-compare-explanation" class="ref-compare-explanation hidden"></div>
+                <div class="cp-ref-footer">
+                  <button class="btn-text" id="ref-save-btn" onclick="openSavePresetDialog()">保存为预设</button>
+                </div>
+                <div id="ref-save-dialog" class="ref-save-dialog hidden">
+                  <input type="text" id="ref-preset-name" placeholder="预设名称…">
+                  <input type="text" id="ref-preset-category" placeholder="分类（可选）">
+                  <div class="ref-save-btns">
+                    <button class="btn-primary small" onclick="confirmSavePreset()">保存</button>
+                    <button class="btn-ghost small" onclick="closeSavePresetDialog()">取消</button>
+                  </div>
                 </div>
               </div>
-              <div class="toggle-row">
-                <label class="toggle-label">
-                  <input type="checkbox" id="brighten-skin">
-                  <span>提亮肤色</span>
-                </label>
-              </div>
-            </div>
-
-            <div class="control-group">
-              <h4>背景处理</h4>
-              <div class="select-row">
-                <label>效果</label>
-                <select id="bg-action">
-                  <option value="none">不处理</option>
-                  <option value="blur">虚化背景</option>
-                  <option value="remove">去除背景（需要 rembg）</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Extended adjustments (collapsible) -->
-            <div class="control-group">
-              <div class="collapsible-header open" onclick="toggleCollapse('advanced-sliders', this)">
-                <h4>高级调整</h4>
-                <span class="collapse-arrow">▸</span>
-              </div>
-              <div id="advanced-sliders" class="collapsible-body">
-                <div class="slider-row">
-                  <label>高光</label>
-                  <input type="range" id="highlights" min="-100" max="100" value="0" oninput="updateLabel(this)">
-                  <span class="slider-val" id="highlights-val">0</span>
-                </div>
-                <div class="slider-row">
-                  <label>阴影</label>
-                  <input type="range" id="shadows" min="-100" max="100" value="0" oninput="updateLabel(this)">
-                  <span class="slider-val" id="shadows-val">0</span>
-                </div>
-                <div class="slider-row">
-                  <label>白点</label>
-                  <input type="range" id="whites" min="-100" max="100" value="0" oninput="updateLabel(this)">
-                  <span class="slider-val" id="whites-val">0</span>
-                </div>
-                <div class="slider-row">
-                  <label>黑点</label>
-                  <input type="range" id="blacks" min="-100" max="100" value="0" oninput="updateLabel(this)">
-                  <span class="slider-val" id="blacks-val">0</span>
-                </div>
-                <div class="slider-row">
-                  <label>自然饱和</label>
-                  <input type="range" id="vibrance" min="-60" max="60" value="0" oninput="updateLabel(this)">
-                  <span class="slider-val" id="vibrance-val">0</span>
-                </div>
-                <div class="slider-row">
-                  <label>清晰度</label>
-                  <input type="range" id="clarity" min="-60" max="60" value="0" oninput="updateLabel(this)">
-                  <span class="slider-val" id="clarity-val">0</span>
-                </div>
-                <div class="slider-row">
-                  <label>暗角</label>
-                  <input type="range" id="vignette" min="-100" max="100" value="0" oninput="updateLabel(this)">
-                  <span class="slider-val" id="vignette-val">0</span>
-                </div>
-                <div class="slider-row">
-                  <label>颗粒感</label>
-                  <input type="range" id="grain" min="0" max="100" value="0" oninput="updateLabel(this)">
-                  <span class="slider-val" id="grain-val">0</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Color curve editor -->
-            <div class="control-group curve-section">
-              <h4>色彩曲线</h4>
-              <div class="curve-channel-tabs">
-                <button class="curve-tab active" data-ch="rgb" onclick="switchCurveTab(this,'rgb')">RGB</button>
-                <button class="curve-tab" data-ch="r" onclick="switchCurveTab(this,'r')">R</button>
-                <button class="curve-tab" data-ch="g" onclick="switchCurveTab(this,'g')">G</button>
-                <button class="curve-tab" data-ch="b" onclick="switchCurveTab(this,'b')">B</button>
-              </div>
-              <div class="curve-canvas-wrap">
-                <canvas id="curve-canvas" width="260" height="260"></canvas>
-              </div>
-              <p class="curve-hint">单击添加控制点，双击删除，拖拽调整</p>
-              <div class="curve-actions">
-                <button class="btn-ghost small" onclick="resetCurrentCurve()">重置当前</button>
-                <button class="btn-ghost small" onclick="resetAllCurves()">全部重置</button>
-              </div>
-            </div>
-
-            <div class="action-row">
-              <button class="btn-primary" onclick="applyManualEdit()">应用效果</button>
-              <button class="btn-ghost" onclick="resetControls()">重置</button>
             </div>
           </div>
 
-          <!-- AI controls -->
-          <div id="panel-ai" class="tab-panel hidden">
-
-            <!-- Quick text → sliders -->
-            <div class="control-group">
-              <div class="assist-header">
-                <h4>AI 解读参数</h4>
-                <span class="assist-sub">描述效果 → 自动调整滑块</span>
-              </div>
-              <div class="assist-row">
-                <input type="text" id="assist-input"
-                  placeholder="如：再亮一点，色调偏暖，磨皮..."
-                  onkeydown="if(event.key==='Enter')getSuggestion()">
-                <button class="btn-assist" id="assist-btn" onclick="getSuggestion()">解读</button>
-              </div>
-              <div id="assist-explanation" class="assist-explanation hidden"></div>
+          <!-- ② Agent 智能修图 -->
+          <div class="cp-section">
+            <div class="cp-hdr open" onclick="toggleCpSection('cp-agent-body', this)">
+              <span class="cp-title">Agent 智能修图</span>
+              <svg class="cp-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
-
-            <!-- Step 1: analyze trigger -->
-            <div id="ai-analyze-area">
-              <p class="ai-hint">AI 分析照片内容，自动生成修图风格建议；也可直接在下方输入描述。</p>
-              <button class="btn-outline w-full" id="analyze-btn" onclick="analyzePhoto()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                分析照片，生成风格建议
-              </button>
-            </div>
-
-            <!-- Step 2: suggestion cards (hidden until analyzed) -->
-            <div id="suggestion-area" class="hidden">
-              <div class="section-row">
-                <span class="section-label">选择风格</span>
-                <button class="btn-text" onclick="analyzePhoto()">重新生成</button>
-              </div>
-              <div id="suggestion-grid" class="suggestion-grid"></div>
-            </div>
-
-            <!-- Instruction textarea -->
-            <div class="ai-textarea-wrap">
-              <div class="section-row">
-                <span class="section-label">修图描述</span>
-                <button class="btn-text" onclick="openPromptLibrary()">从提示词库选择</button>
-              </div>
-              <textarea id="ai-instruction"
-                placeholder="选择上方风格卡片后自动填写，或直接输入描述..."
-                rows="3"></textarea>
-            </div>
-
-            <button class="btn-primary w-full" onclick="applyAIEdit()">生成效果图</button>
-            <div id="ai-explanation" class="ai-explanation hidden"></div>
-          </div>
-
-          <!-- Agent Mode Panel -->
-          <div id="panel-agent" class="tab-panel hidden">
-            <div class="section-card">
-              <h3 style="margin:0 0 8px">Agent 智能修图</h3>
-              <p style="color:#aaa;font-size:13px;margin:0 0 14px">AI 自动迭代优化，每轮由审查 Agent 评分，直到满意为止（最多5轮）</p>
-
-              <label style="font-size:13px;color:#ccc">修图指令</label>
-              <input id="agentInstruction" type="text" placeholder="例如：让照片更暖更通透"
-                     style="width:100%;margin-top:6px;padding:8px 10px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#fff;font-size:14px;box-sizing:border-box">
-
-              <button id="agentStartBtn" onclick="startAgentEdit()"
-                      style="margin-top:12px;width:100%;padding:10px;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:8px;color:#fff;font-size:14px;cursor:pointer;font-weight:600">
+            <div id="cp-agent-body" class="cp-body">
+              <p class="cp-hint" id="agent-hint">多轮自动迭代，每轮 AI 评分，满意即停（最多 5 轮）</p>
+              <input id="agentInstruction" type="text" placeholder="修图指令，如：让照片更暖更通透">
+              <button id="agentStartBtn" class="btn-primary w-full" style="margin-top:8px" onclick="startAgentEdit()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 开始 Agent 修图
               </button>
-            </div>
-
-            <div id="agentProgress" class="section-card" style="display:none">
-              <h4 style="margin:0 0 12px;color:#e5e7eb">修图进度</h4>
-              <div id="agentRounds"></div>
-            </div>
-
-            <div id="agentResult" class="section-card" style="display:none">
-              <h4 style="margin:0 0 12px;color:#e5e7eb">最终结果</h4>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                <div>
-                  <p style="font-size:12px;color:#6b7280;margin:0 0 6px">原图</p>
-                  <img id="agentOriginalPreview" style="width:100%;border-radius:8px">
-                </div>
-                <div>
-                  <p style="font-size:12px;color:#6b7280;margin:0 0 6px">最佳结果</p>
-                  <img id="agentBestPreview" style="width:100%;border-radius:8px">
-                </div>
+              <div id="agentProgress" class="hidden" style="margin-top:12px">
+                <div id="agentRounds"></div>
               </div>
-              <p id="agentBestInfo" style="margin-top:10px;font-size:13px;color:#9ca3af"></p>
-              <button onclick="applyAgentResult()"
-                      style="margin-top:10px;padding:8px 18px;background:#059669;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:14px">
-                应用此结果
-              </button>
-            </div>
-          </div>
-
-          <!-- History tab -->
-          <div id="panel-history" class="tab-panel hidden">
-            <div class="section-card" style="display:flex;justify-content:space-between;align-items:center">
-              <h3 style="margin:0">历史记录</h3>
-              <button onclick="loadHistory()"
-                      style="padding:6px 14px;background:#374151;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:13px">
-                刷新
-              </button>
-            </div>
-
-            <div id="historyList"></div>
-
-            <div id="historyDetail" style="display:none">
-              <div class="section-card">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-                  <button onclick="closeHistoryDetail()"
-                          style="padding:4px 10px;background:#374151;border:none;border-radius:5px;color:#fff;cursor:pointer">
-                    ← 返回
-                  </button>
-                  <h4 id="historyDetailTitle" style="margin:0;flex:1;color:#e5e7eb"></h4>
-                </div>
-
-                <div id="historyRoundGrid"
-                     style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px"></div>
-
-                <div id="historyCompare" style="display:none;margin-top:16px">
-                  <h4 style="margin:0 0 10px;color:#e5e7eb">版本对比</h4>
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                    <div style="text-align:center">
-                      <img id="compareLeft" style="width:100%;border-radius:8px">
-                      <p id="compareLeftLabel" style="font-size:12px;color:#9ca3af;margin-top:6px"></p>
-                    </div>
-                    <div style="text-align:center">
-                      <img id="compareRight" style="width:100%;border-radius:8px">
-                      <p id="compareRightLabel" style="font-size:12px;color:#9ca3af;margin-top:6px"></p>
-                    </div>
+              <div id="agentResult" class="agent-result hidden">
+                <div class="agent-result-header"><h4>最终结果</h4></div>
+                <div class="agent-result-body">
+                  <div class="agent-result-grid">
+                    <div class="result-col"><p class="result-col-label">原图</p><img id="agentOriginalPreview" alt="原图"></div>
+                    <div class="result-col"><p class="result-col-label">最佳结果</p><img id="agentBestPreview" alt="最佳结果"></div>
                   </div>
-                  <button onclick="document.getElementById('historyCompare').style.display='none';compareLeftPending=null"
-                          style="margin-top:10px;padding:6px 14px;background:#374151;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:13px">
-                    关闭对比
-                  </button>
+                  <p id="agentBestInfo" class="agent-result-info"></p>
+                  <button class="btn-primary small" onclick="applyAgentResult()">应用此结果</button>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Reference image tab -->
-          <div id="panel-ref" class="tab-panel hidden">
-            <div class="ref-upload-zone" id="ref-drop-zone"
-                 onclick="document.getElementById('ref-input').click()"
-                 ondragover="event.preventDefault();this.classList.add('dragover')"
-                 ondragleave="this.classList.remove('dragover')"
-                 ondrop="event.preventDefault();this.classList.remove('dragover');handleReferenceUpload(event.dataTransfer.files[0])">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-              <p class="ref-upload-label">拖拽或点击上传参考图</p>
-              <p class="ref-upload-hint">AI 提取风格参数，一键应用到当前照片</p>
+          <!-- ③ 手动微调 -->
+          <div class="cp-section">
+            <div class="cp-hdr" onclick="toggleCpSection('cp-manual-body', this)">
+              <span class="cp-title">手动微调</span>
+              <svg class="cp-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
-            <input type="file" id="ref-input" accept="image/jpeg,image/png,image/webp"
-              style="display:none" onchange="handleReferenceUpload(this.files[0])">
+            <div id="cp-manual-body" class="cp-body hidden">
+              <div class="control-group">
+                <h4>基础调整</h4>
+                <div class="slider-row">
+                  <label>亮度</label>
+                  <input type="range" id="brightness" min="-60" max="60" value="0" oninput="updateLabel(this)">
+                  <span class="slider-val" id="brightness-val">0</span>
+                </div>
+                <div class="slider-row">
+                  <label>对比度</label>
+                  <input type="range" id="contrast" min="-60" max="60" value="0" oninput="updateLabel(this)">
+                  <span class="slider-val" id="contrast-val">0</span>
+                </div>
+                <div class="slider-row">
+                  <label>饱和度</label>
+                  <input type="range" id="saturation" min="-60" max="60" value="0" oninput="updateLabel(this)">
+                  <span class="slider-val" id="saturation-val">0</span>
+                </div>
+                <div class="slider-row">
+                  <label>锐度</label>
+                  <input type="range" id="sharpness" min="-60" max="60" value="0" oninput="updateLabel(this)">
+                  <span class="slider-val" id="sharpness-val">0</span>
+                </div>
+                <div class="slider-row">
+                  <label>色温 <small>冷 ↔ 暖</small></label>
+                  <input type="range" id="colortemp" min="-100" max="100" value="0" oninput="updateLabel(this)">
+                  <span class="slider-val" id="colortemp-val">0</span>
+                </div>
+              </div>
 
-            <div id="ref-result" class="ref-result hidden">
-              <div class="ref-result-inner">
-                <img id="ref-thumb" class="ref-thumb" alt="">
-                <div class="ref-info">
-                  <div class="ref-style-name" id="ref-style-name"></div>
-                  <div class="ref-explanation" id="ref-explanation"></div>
+              <div class="control-group">
+                <h4>人像美化</h4>
+                <div class="toggle-row">
+                  <label class="toggle-label">
+                    <input type="checkbox" id="smooth-skin" onchange="toggleSection('smooth-options',this)">
+                    <span>磨皮</span>
+                  </label>
+                </div>
+                <div id="smooth-options" class="sub-options hidden">
+                  <div class="slider-row">
+                    <label>程度</label>
+                    <input type="range" id="smooth-level" min="0" max="100" value="40" oninput="updateLabel(this)">
+                    <span class="slider-val" id="smooth-level-val">40</span>
+                  </div>
+                </div>
+                <div class="toggle-row">
+                  <label class="toggle-label">
+                    <input type="checkbox" id="brighten-skin">
+                    <span>提亮肤色</span>
+                  </label>
                 </div>
               </div>
-              <div class="ref-actions">
-                <button class="btn-primary small" onclick="applyReferenceParams()">应用参数</button>
-                <button class="btn-ghost small" onclick="generateFromReference()">AI 生成</button>
-                <button class="btn-ghost small" id="ref-save-btn" onclick="openSavePresetDialog()">保存预设</button>
-              </div>
-              <div class="ref-compare-row">
-                <button class="btn-outline small" onclick="compareStyle()">AI 比对调整</button>
-                <span class="ref-compare-hint">先应用参数生成效果图，再比对修正</span>
-              </div>
-              <div id="ref-compare-explanation" class="ref-compare-explanation hidden"></div>
-              <div id="ref-save-dialog" class="ref-save-dialog hidden">
-                <input type="text" id="ref-preset-name" placeholder="预设名称...">
-                <input type="text" id="ref-preset-category" placeholder="分类（可选）">
-                <div class="ref-save-btns">
-                  <button class="btn-primary small" onclick="confirmSavePreset()">保存</button>
-                  <button class="btn-ghost small" onclick="closeSavePresetDialog()">取消</button>
+
+              <div class="control-group">
+                <h4>背景处理</h4>
+                <div class="select-row">
+                  <label>效果</label>
+                  <select id="bg-action">
+                    <option value="none">不处理</option>
+                    <option value="blur">虚化背景</option>
+                    <option value="remove">去除背景</option>
+                  </select>
                 </div>
               </div>
-              <button class="btn-ghost small ref-reupload-btn"
-                      onclick="document.getElementById('ref-input').click()">换一张参考图</button>
+
+              <div class="control-group">
+                <div class="collapsible-header open" onclick="toggleCollapse('advanced-sliders',this)">
+                  <h4>高级调整</h4>
+                  <span class="collapse-arrow">▶</span>
+                </div>
+                <div id="advanced-sliders" class="collapsible-body">
+                  <div class="slider-row">
+                    <label>高光</label>
+                    <input type="range" id="highlights" min="-100" max="100" value="0" oninput="updateLabel(this)">
+                    <span class="slider-val" id="highlights-val">0</span>
+                  </div>
+                  <div class="slider-row">
+                    <label>阴影</label>
+                    <input type="range" id="shadows" min="-100" max="100" value="0" oninput="updateLabel(this)">
+                    <span class="slider-val" id="shadows-val">0</span>
+                  </div>
+                  <div class="slider-row">
+                    <label>白点</label>
+                    <input type="range" id="whites" min="-100" max="100" value="0" oninput="updateLabel(this)">
+                    <span class="slider-val" id="whites-val">0</span>
+                  </div>
+                  <div class="slider-row">
+                    <label>黑点</label>
+                    <input type="range" id="blacks" min="-100" max="100" value="0" oninput="updateLabel(this)">
+                    <span class="slider-val" id="blacks-val">0</span>
+                  </div>
+                  <div class="slider-row">
+                    <label>自然饱和</label>
+                    <input type="range" id="vibrance" min="-60" max="60" value="0" oninput="updateLabel(this)">
+                    <span class="slider-val" id="vibrance-val">0</span>
+                  </div>
+                  <div class="slider-row">
+                    <label>清晰度</label>
+                    <input type="range" id="clarity" min="-60" max="60" value="0" oninput="updateLabel(this)">
+                    <span class="slider-val" id="clarity-val">0</span>
+                  </div>
+                  <div class="slider-row">
+                    <label>暗角</label>
+                    <input type="range" id="vignette" min="-100" max="100" value="0" oninput="updateLabel(this)">
+                    <span class="slider-val" id="vignette-val">0</span>
+                  </div>
+                  <div class="slider-row">
+                    <label>颗粒感</label>
+                    <input type="range" id="grain" min="0" max="100" value="0" oninput="updateLabel(this)">
+                    <span class="slider-val" id="grain-val">0</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="control-group curve-section">
+                <h4 style="margin-bottom:10px">色彩曲线</h4>
+                <div class="curve-channel-tabs">
+                  <button class="curve-tab active" data-ch="rgb" onclick="switchCurveTab(this,'rgb')">RGB</button>
+                  <button class="curve-tab" data-ch="r" onclick="switchCurveTab(this,'r')">R</button>
+                  <button class="curve-tab" data-ch="g" onclick="switchCurveTab(this,'g')">G</button>
+                  <button class="curve-tab" data-ch="b" onclick="switchCurveTab(this,'b')">B</button>
+                </div>
+                <div class="curve-canvas-wrap">
+                  <canvas id="curve-canvas" width="260" height="260"></canvas>
+                </div>
+                <p class="curve-hint">单击添加控制点 · 双击删除 · 拖拽调整</p>
+                <div class="curve-actions">
+                  <button class="btn-ghost" onclick="resetCurrentCurve()">重置当前</button>
+                  <button class="btn-ghost" onclick="resetAllCurves()">全部重置</button>
+                </div>
+              </div>
+
+              <div class="action-row">
+                <button class="btn-primary" onclick="applyManualEdit()">应用效果</button>
+                <button class="btn-ghost" onclick="resetControls()">重置</button>
+              </div>
             </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- History Modal -->
+  <div id="history-modal" class="modal-overlay hidden" onclick="historyModalOverlayClick(event)">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>历史记录</h3>
+        <div class="modal-header-actions">
+          <button class="btn-ghost small" onclick="loadHistory()">刷新</button>
+          <button class="modal-close" onclick="closeHistoryModal()">✕</button>
+        </div>
+      </div>
+      <div class="modal-body-single history-modal-body">
+        <div id="historyList"></div>
+
+        <div id="historyDetail" class="hidden">
+          <div class="history-detail-header">
+            <button class="btn-ghost small" onclick="closeHistoryDetail()">← 返回列表</button>
+            <span class="history-detail-title" id="historyDetailTitle"></span>
+          </div>
+          <div id="historyRoundGrid" class="hist-round-grid"></div>
+          <div id="historyCompare" class="hist-compare hidden">
+            <p class="hist-compare-title">版本对比</p>
+            <div class="hist-compare-grid">
+              <div class="hist-compare-col">
+                <img id="compareLeft" alt="">
+                <p id="compareLeftLabel" class="hist-compare-label"></p>
+              </div>
+              <div class="hist-compare-col">
+                <img id="compareRight" alt="">
+                <p id="compareRightLabel" class="hist-compare-label"></p>
+              </div>
+            </div>
+            <button class="btn-ghost small" onclick="document.getElementById('historyCompare').classList.add('hidden');compareLeftPending=null">关闭对比</button>
           </div>
         </div>
       </div>
-    </section>
-  </main>
+    </div>
+  </div>
 
   <!-- Loading overlay -->
   <div id="loading" class="loading hidden">
     <div class="loading-box">
       <div class="spinner"></div>
-      <p id="loading-text">处理中...</p>
+      <p id="loading-text">处理中…</p>
     </div>
   </div>
 
@@ -434,25 +390,19 @@
           <button class="modal-close" onclick="closePromptLibrary()">✕</button>
         </div>
       </div>
-
       <div class="modal-toolbar">
-        <input type="text" id="lib-search" placeholder="搜索名称、内容或标签..."
-          oninput="filterPrompts()" autocomplete="off">
+        <input type="text" id="lib-search" placeholder="搜索名称、内容或标签…" oninput="filterPrompts()" autocomplete="off">
         <select id="lib-category" onchange="filterPrompts()">
           <option value="">全部分类</option>
         </select>
       </div>
-
       <div class="modal-body">
-        <!-- Left: list -->
         <div class="prompt-list" id="prompt-list">
-          <div class="list-empty">加载中...</div>
+          <div class="list-empty">加载中…</div>
         </div>
-
-        <!-- Right: edit panel -->
         <div class="prompt-edit-panel" id="prompt-edit-panel">
           <div class="edit-panel-empty" id="edit-empty">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:#cbd5e1"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-3)"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
             <p>从左侧选择提示词<br>或点击「新增」</p>
           </div>
           <div class="prompt-form hidden" id="prompt-form">
@@ -463,22 +413,21 @@
             <div class="form-row">
               <div class="form-field flex1">
                 <label>分类</label>
-                <input type="text" id="pf-category" placeholder="如：人像、风景、日常">
+                <input type="text" id="pf-category" placeholder="如：人像、风景">
               </div>
               <div class="form-field flex1">
                 <label>标签（逗号分隔）</label>
-                <input type="text" id="pf-tags" placeholder="日系, 清新, 人像">
+                <input type="text" id="pf-tags" placeholder="日系, 清新">
               </div>
             </div>
             <div class="form-field">
               <label>提示词内容</label>
-              <textarea id="pf-prompt" rows="7"
-                placeholder="输入完整的修图提示词，描述需要调整的具体内容..."></textarea>
+              <textarea id="pf-prompt" rows="7" placeholder="输入完整的修图提示词…"></textarea>
             </div>
             <div class="form-actions">
               <button class="btn-primary" onclick="saveCurrentPrompt()">保存</button>
               <button class="btn-danger" id="pf-delete" onclick="deleteCurrentPrompt()">删除</button>
-              <button class="btn-outline" onclick="useCurrentPrompt()">使用此提示词</button>
+              <button class="btn-ghost" onclick="useCurrentPrompt()">使用此提示词</button>
             </div>
           </div>
         </div>
@@ -494,35 +443,47 @@
         <button class="modal-close" onclick="closePresetLibrary()">✕</button>
       </div>
       <div class="modal-toolbar">
-        <input type="text" id="preset-search" placeholder="搜索预设名称或标签..."
-          oninput="filterPresets()" autocomplete="off">
+        <input type="text" id="preset-search" placeholder="搜索预设名称或标签…" oninput="filterPresets()" autocomplete="off">
         <select id="preset-category" onchange="filterPresets()">
           <option value="">全部分类</option>
         </select>
       </div>
       <div class="modal-body-single">
         <div class="preset-list" id="preset-list">
-          <div class="list-empty">加载中...</div>
+          <div class="list-empty">加载中…</div>
         </div>
       </div>
     </div>
   </div>
 
-  <script src="/static/curve_editor.js?v=5"></script>
-  <script src="/static/app.js?v=5"></script>
+  <script src="/static/curve_editor.js?v=9"></script>
+  <script src="/static/app.js?v=9"></script>
   <script>
+'use strict';
 let agentBestImageUrl = null;
 
 function startAgentEdit() {
-  const instruction = document.getElementById('agentInstruction').value.trim();
-  if (!instruction) { alert('请输入修图指令'); return; }
+  let instruction = document.getElementById('agentInstruction').value.trim();
   if (!currentFilename) { alert('请先上传图片'); return; }
+  if (!instruction) {
+    if (typeof _referenceFilename !== 'undefined' && _referenceFilename) {
+      instruction = document.getElementById('ref-explanation').textContent.trim() || '根据参考图风格调色';
+      document.getElementById('agentInstruction').value = instruction;
+    } else {
+      alert('请输入修图指令，或先上传参考图'); return;
+    }
+  }
 
-  document.getElementById('agentProgress').style.display = 'block';
-  document.getElementById('agentResult').style.display = 'none';
-  document.getElementById('agentRounds').innerHTML = '';
-  document.getElementById('agentStartBtn').disabled = true;
-  document.getElementById('agentStartBtn').textContent = '修图中...';
+  const progress = document.getElementById('agentProgress');
+  const result   = document.getElementById('agentResult');
+  const startBtn = document.getElementById('agentStartBtn');
+  const rounds   = document.getElementById('agentRounds');
+
+  progress.classList.remove('hidden');
+  result.classList.add('hidden');
+  rounds.innerHTML = '';
+  startBtn.disabled = true;
+  startBtn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px"></div>修图中…';
   agentBestImageUrl = null;
 
   const body = { filename: currentFilename, instruction };
@@ -535,7 +496,7 @@ function startAgentEdit() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   }).then(async res => {
-    const reader = res.body.getReader();
+    const reader  = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
     while (true) {
@@ -553,40 +514,47 @@ function startAgentEdit() {
   }).catch(err => {
     alert('Agent 修图失败: ' + err.message);
   }).finally(() => {
-    document.getElementById('agentStartBtn').disabled = false;
-    document.getElementById('agentStartBtn').textContent = '开始 Agent 修图';
+    startBtn.disabled = false;
+    startBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>开始 Agent 修图';
   });
 }
 
 function handleAgentEvent(evt) {
   if (evt.type === 'progress' && evt.status === 'editing') {
-    _addRoundCard(evt.round, '修图中...', null, null, null, false);
+    _addRoundCard(evt.round, '生成参数…', null, null, null);
   } else if (evt.type === 'progress' && evt.status === 'reviewing') {
-    _updateRoundStatus(evt.round, '审查中...');
+    _updateRoundStatus(evt.round, '审查评分中…');
   } else if (evt.type === 'progress' && evt.status === 'done_round') {
     _updateRoundCard(evt.round, evt.explanation, evt.score, evt.image_url, evt.suggestions, evt.is_satisfied);
+  } else if (evt.type === 'error') {
+    const roundsEl = document.getElementById('agentRounds');
+    const errDiv = document.createElement('div');
+    errDiv.style.cssText = 'padding:10px 12px;background:var(--red-dim);border:1px solid var(--red);border-radius:var(--r);font-size:12px;color:var(--red);margin-top:6px';
+    errDiv.textContent = evt.message || '处理出错';
+    roundsEl.appendChild(errDiv);
   } else if (evt.type === 'done') {
     agentBestImageUrl = evt.image_url;
-    document.getElementById('agentResult').style.display = 'block';
+    const result = document.getElementById('agentResult');
+    result.classList.remove('hidden');
     document.getElementById('agentOriginalPreview').src = '/uploads/' + currentFilename;
     document.getElementById('agentBestPreview').src = evt.image_url;
     document.getElementById('agentBestInfo').textContent =
-      `最佳结果：第 ${evt.best_round} 轮，综合评分 ${evt.final_score.toFixed(1)} / 10`;
+      '最佳结果：第 ' + evt.best_round + ' 轮 · 综合评分 ' + evt.final_score.toFixed(1) + ' / 10';
   }
 }
 
-function _addRoundCard(round, statusText, score, imageUrl, suggestions, satisfied) {
+function _addRoundCard(round, statusText, score, imageUrl, suggestions) {
   if (document.getElementById('round-card-' + round)) return;
   const div = document.createElement('div');
   div.id = 'round-card-' + round;
-  div.style.cssText = 'background:#1e1e1e;border-radius:8px;padding:12px;margin-bottom:10px;border:1px solid #333';
-  div.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <span style="font-weight:bold;color:#a78bfa">第 ${round} 轮</span>
-      <span id="round-status-${round}" style="font-size:13px;color:#6b7280">${statusText}</span>
-      <span id="round-score-${round}" style="margin-left:auto;font-size:13px"></span>
-    </div>
-    <div id="round-body-${round}"></div>`;
+  div.className = 'round-card';
+  div.innerHTML =
+    '<div class="round-header">' +
+      '<span class="round-num">第 ' + round + ' 轮</span>' +
+      '<span class="round-status" id="round-status-' + round + '">' + statusText + '</span>' +
+      '<span class="round-score" id="round-score-' + round + '"></span>' +
+    '</div>' +
+    '<div class="round-body hidden" id="round-body-' + round + '"></div>';
   document.getElementById('agentRounds').appendChild(div);
 }
 
@@ -596,115 +564,151 @@ function _updateRoundStatus(round, text) {
 }
 
 function _updateRoundCard(round, explanation, score, imageUrl, suggestions, satisfied) {
-  _addRoundCard(round, explanation || '', score, imageUrl, suggestions, satisfied);
+  _addRoundCard(round, explanation || '');
   document.getElementById('round-status-' + round).textContent = explanation || '';
+
   const scoreEl = document.getElementById('round-score-' + round);
-  if (score !== null) {
-    scoreEl.textContent = `${score.toFixed(1)} / 10${satisfied ? ' ✓' : ''}`;
-    scoreEl.style.color = satisfied ? '#34d399' : score >= 7 ? '#fbbf24' : '#f87171';
+  if (score !== null && scoreEl) {
+    scoreEl.textContent = score.toFixed(1) + ' / 10' + (satisfied ? ' ✓' : '');
+    scoreEl.className = 'round-score ' + (satisfied ? 'score-good' : score >= 7 ? 'score-mid' : 'score-bad');
   }
+
   const body = document.getElementById('round-body-' + round);
-  let html = imageUrl ? `<img src="${imageUrl}" style="width:100%;max-height:180px;object-fit:cover;border-radius:6px">` : '';
+  if (!body) return;
+  let html = imageUrl ? '<img class="round-thumb" src="' + imageUrl + '" alt="第' + round + '轮">' : '';
   if (suggestions && Object.keys(suggestions).length) {
-    html += `<div style="margin-top:8px;font-size:12px;color:#9ca3af;line-height:1.6">`;
-    for (const [, v] of Object.entries(suggestions)) html += `<div>· ${v}</div>`;
-    html += `</div>`;
+    html += '<div class="round-suggestions">';
+    for (const v of Object.values(suggestions)) {
+      html += '<div class="round-suggestion-item">' + v + '</div>';
+    }
+    html += '</div>';
   }
   body.innerHTML = html;
+  body.classList.remove('hidden');
 }
 
 function applyAgentResult() {
   if (!agentBestImageUrl) return;
-  const resultImg = document.getElementById('result-img');
-  if (resultImg) { resultImg.src = agentBestImageUrl; resultImg.style.display = 'block'; }
+  const img = document.getElementById('result-img');
+  if (img) { img.src = agentBestImageUrl; img.style.display = 'block'; }
 }
   </script>
   <script>
+'use strict';
 let compareLeftPending = null;
+
+function openHistoryModal() {
+  document.getElementById('history-modal').classList.remove('hidden');
+  document.getElementById('historyDetail').classList.add('hidden');
+  loadHistory();
+}
+
+function closeHistoryModal() {
+  document.getElementById('history-modal').classList.add('hidden');
+}
+
+function historyModalOverlayClick(e) {
+  if (e.target === document.getElementById('history-modal')) closeHistoryModal();
+}
 
 async function loadHistory() {
   const list = document.getElementById('historyList');
-  list.innerHTML = '<p style="color:#6b7280;padding:12px">加载中...</p>';
-  const res = await fetch('/api/agent/sessions');
+  list.classList.remove('hidden');
+  document.getElementById('historyDetail').classList.add('hidden');
+  list.innerHTML = '<p style="font-size:12px;color:var(--text-3);padding:8px 0">加载中…</p>';
+  const res  = await fetch('/api/agent/sessions');
   const data = await res.json();
   list.innerHTML = '';
 
   if (!data.sessions.length) {
-    list.innerHTML = '<p style="color:#6b7280;padding:12px">暂无历史记录</p>';
+    list.innerHTML = '<p style="font-size:12px;color:var(--text-3);padding:8px 0">暂无历史记录</p>';
     return;
   }
 
   for (const s of data.sessions) {
-    const scoreText = s.best_score !== null ? ` · 最高分 ${s.best_score.toFixed(1)}` : '';
+    const scoreText = s.best_score !== null ? ' · 最高 ' + s.best_score.toFixed(1) : '';
     const div = document.createElement('div');
-    div.className = 'section-card';
-    div.style.cssText = 'display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:8px';
-    div.innerHTML = `
-      <div>
-        <div style="font-weight:600;color:#e5e7eb">${s.instruction}</div>
-        <div style="font-size:12px;color:#6b7280;margin-top:3px">
-          ${new Date(s.created_at).toLocaleString()} · ${s.total_rounds} 轮${scoreText}
-        </div>
-      </div>
-      <span style="color:#7c3aed;font-size:22px;line-height:1">›</span>`;
+    div.className = 'session-card';
+    div.innerHTML =
+      '<div class="session-info">' +
+        '<div class="session-instruction">' + s.instruction + '</div>' +
+        '<div class="session-meta">' + new Date(s.created_at).toLocaleString('zh-CN') + ' · ' + s.total_rounds + ' 轮' + scoreText + '</div>' +
+      '</div>' +
+      '<span class="session-arrow">›</span>';
     div.onclick = () => openHistoryDetail(s.session_id, s.instruction);
     list.appendChild(div);
   }
 }
 
 async function openHistoryDetail(sessionId, instruction) {
-  const res = await fetch('/api/agent/sessions/' + sessionId);
+  const res     = await fetch('/api/agent/sessions/' + sessionId);
   const session = await res.json();
 
-  document.getElementById('historyDetail').style.display = 'block';
+  document.getElementById('historyList').classList.add('hidden');
+  document.getElementById('historyDetail').classList.remove('hidden');
   document.getElementById('historyDetailTitle').textContent = instruction;
-  document.getElementById('historyCompare').style.display = 'none';
+  document.getElementById('historyCompare').classList.add('hidden');
   compareLeftPending = null;
 
   const grid = document.getElementById('historyRoundGrid');
   grid.innerHTML = '';
 
+  // Original image card
+  const origUrl = '/sessions/' + sessionId + '/original.jpg';
+  const origCard = document.createElement('div');
+  origCard.className = 'hist-round-card is-original';
+  origCard.innerHTML =
+    '<img class="hist-round-img" src="' + origUrl + '" alt="原图">' +
+    '<div class="hist-round-info">' +
+      '<div class="hist-round-num">原图</div>' +
+      '<div class="hist-round-score" style="color:var(--text-3)">—</div>' +
+      '<button class="hist-cmp-btn" onclick="selectForCompare(0,\'' + origUrl + '\')">选择对比</button>' +
+    '</div>';
+  grid.appendChild(origCard);
+
   for (const iter of session.iterations) {
     const imageUrl = '/sessions/' + sessionId + '/' + iter.image_filename;
-    const overall = iter.scores.overall;
-    const isBest = iter.round === session.best_round;
+    const isBest   = iter.round === session.best_round;
+    const overall  = iter.scores.overall;
 
     const card = document.createElement('div');
-    card.style.cssText = `background:#1e1e1e;border-radius:8px;overflow:hidden;border:2px solid ${isBest ? '#7c3aed' : '#333'}`;
-    card.innerHTML = `
-      <img src="${imageUrl}" style="width:100%;height:110px;object-fit:cover;display:block">
-      <div style="padding:8px">
-        <div style="font-size:12px;color:#e5e7eb;font-weight:600">第${iter.round}轮 ${isBest ? '⭐' : ''}</div>
-        <div style="font-size:12px;color:#34d399">评分 ${overall.toFixed(1)}</div>
-        <button onclick="selectForCompare(${iter.round},'${imageUrl}')"
-                style="margin-top:6px;width:100%;padding:3px 0;font-size:11px;background:#374151;border:none;border-radius:4px;color:#d1d5db;cursor:pointer">
-          选择对比
-        </button>
-      </div>`;
+    card.className = 'hist-round-card' + (isBest ? ' is-best' : '');
+    card.innerHTML =
+      '<img class="hist-round-img" src="' + imageUrl + '" alt="第' + iter.round + '轮">' +
+      '<div class="hist-round-info">' +
+        '<div class="hist-round-num">第 ' + iter.round + ' 轮' + (isBest ? ' ★' : '') + '</div>' +
+        '<div class="hist-round-score">' + overall.toFixed(1) + ' / 10</div>' +
+        '<button class="hist-cmp-btn" onclick="selectForCompare(' + iter.round + ',\'' + imageUrl + '\')">选择对比</button>' +
+      '</div>';
     grid.appendChild(card);
   }
-  document.getElementById('historyDetail').scrollIntoView({ behavior: 'smooth' });
+  document.getElementById('history-modal').querySelector('.history-modal-body').scrollTop = 0;
+}
+
+function _roundLabel(round) {
+  return round === 0 ? '原图' : '第 ' + round + ' 轮';
 }
 
 function selectForCompare(round, imageUrl) {
   if (!compareLeftPending) {
     compareLeftPending = { round, imageUrl };
     document.getElementById('compareLeft').src = imageUrl;
-    document.getElementById('compareLeftLabel').textContent = `第${round}轮（点击另一张完成对比）`;
+    document.getElementById('compareLeftLabel').textContent = _roundLabel(round) + '（再选一张完成对比）';
     document.getElementById('compareRight').src = '';
     document.getElementById('compareRightLabel').textContent = '请选择第二张';
-    document.getElementById('historyCompare').style.display = 'block';
+    document.getElementById('historyCompare').classList.remove('hidden');
   } else {
     document.getElementById('compareRight').src = imageUrl;
-    document.getElementById('compareRightLabel').textContent = `第${round}轮`;
-    document.getElementById('compareLeftLabel').textContent = `第${compareLeftPending.round}轮`;
+    document.getElementById('compareRightLabel').textContent = _roundLabel(round);
+    document.getElementById('compareLeftLabel').textContent  = _roundLabel(compareLeftPending.round);
     compareLeftPending = null;
   }
 }
 
 function closeHistoryDetail() {
-  document.getElementById('historyDetail').style.display = 'none';
-  document.getElementById('historyCompare').style.display = 'none';
+  document.getElementById('historyDetail').classList.add('hidden');
+  document.getElementById('historyCompare').classList.add('hidden');
+  document.getElementById('historyList').classList.remove('hidden');
   compareLeftPending = null;
 }
   </script>

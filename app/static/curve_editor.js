@@ -181,12 +181,12 @@ class CurveEditor {
     const pad   = this._pad;
     const inner = Math.min(W, H) - pad * 2;
 
-    // Background — darkroom sepia
-    ctx.fillStyle = "#1D1510";
+    // Background
+    ctx.fillStyle = "#1f1f23";
     ctx.fillRect(0, 0, W, H);
 
     // Grid
-    ctx.strokeStyle = "#2E2318";
+    ctx.strokeStyle = "#28282e";
     ctx.lineWidth   = 1;
     for (let i = 1; i < 4; i++) {
       const x = pad + (i / 4) * inner;
@@ -196,7 +196,7 @@ class CurveEditor {
     }
 
     // Identity diagonal
-    ctx.strokeStyle = "#4A3822";
+    ctx.strokeStyle = "#3a3a40";
     ctx.lineWidth   = 1;
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
@@ -206,7 +206,7 @@ class CurveEditor {
     ctx.setLineDash([]);
 
     // Border
-    ctx.strokeStyle = "#5C4830";
+    ctx.strokeStyle = "#3a3a40";
     ctx.lineWidth   = 1;
     ctx.strokeRect(pad, pad, inner, inner);
 
@@ -215,10 +215,10 @@ class CurveEditor {
     const lut = this._buildLut(pts);
 
     const channelColor = {
-      rgb: "#E8DCC8",   // warm paper white
-      r:   "#D05848",   // darkroom red
-      g:   "#5A9048",   // forest green
-      b:   "#4868B0",   // muted blue
+      rgb: "#f4f4f5",
+      r:   "#ef4444",
+      g:   "#22c55e",
+      b:   "#3b82f6",
     }[this._channel];
 
     ctx.strokeStyle = channelColor;
@@ -236,9 +236,9 @@ class CurveEditor {
       const [cx, cy] = this._toCanvas(sorted[i][0], sorted[i][1]);
       ctx.beginPath();
       ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-      ctx.fillStyle = i === this._dragging ? "#FAFAF8" : channelColor;
+      ctx.fillStyle = i === this._dragging ? "#ffffff" : channelColor;
       ctx.fill();
-      ctx.strokeStyle = "#E8DCC8";
+      ctx.strokeStyle = "#1f1f23";
       ctx.lineWidth = 1.5;
       ctx.stroke();
     }
