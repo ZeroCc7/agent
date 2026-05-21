@@ -1,19 +1,14 @@
-"""DashScope wan2.7-image-pro photo editing.
-
-Image input priority:
-  1. file:// URI  — local dev, same machine as the FastAPI server
-  2. base64       — fallback, or set USE_BASE64=true in .env
-"""
+"""DashScope wan2.7-image-pro image-to-image editing with optional style reference."""
 
 import base64
 import io
-import mimetypes
 import os
 import urllib.request
-from pathlib import Path
+from typing import Optional
 
 import dashscope
-from dashscope.aigc.image_synthesis import ImageSynthesis as ImageGeneration
+from dashscope import MultiModalConversation
+from dashscope.aigc.image_generation import ImageGeneration
 from dashscope.api_entities.dashscope_response import Message
 from PIL import Image
 
@@ -25,50 +20,69 @@ _STYLE_GUIDE = (
 )
 
 
-def _encode_file(file_path: Path) -> str:
-    """Return base64 data URI for the image file."""
-    mime_type, _ = mimetypes.guess_type(str(file_path))
-    if not mime_type or not mime_type.startswith("image/"):
-        mime_type = "image/jpeg"
-    with open(file_path, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode("utf-8")
-    return f"data:{mime_type};base64,{b64}"
-
-
-def _file_uri(file_path: Path) -> str:
-    """file://E:/path/to/img.jpg — matches DashScope's expected format."""
-    abs_path = str(file_path.resolve()).replace("\\", "/")
-    return f"file://{abs_path}"
-
-
-def _image_ref(file_path: Path) -> str:
-    """Return the image reference string to pass in message content."""
-    if os.getenv("USE_BASE64", "").lower() in ("1", "true"):
-        return _encode_file(file_path)
-    return _file_uri(file_path)
+def _encode_image(img: Image.Image) -> str:
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, "JPEG", quality=90)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
 def _pick_size(img: Image.Image) -> str:
     ratio = img.width / img.height
     if ratio > 1.5:
-        return "2K"   # landscape → 2560×1440
+        return "1280*720"
     elif ratio < 0.67:
-        return "1440*2560"  # portrait
-    else:
-        return "1440*1440"  # near-square
+        return "720*1280"
+    return "1024*1024"
 
 
-def edit_image(image_path: Path, instruction: str) -> Image.Image:
-    """
-    Edit a photo using DashScope wan2.7-image-pro.
+def _describe_reference_style(ref_img: Image.Image, api_key: str) -> str:
+    model = os.getenv("ANALYZE_MODEL", "qwen3.6-plus")
+    buf = io.BytesIO()
+    thumb = ref_img.convert("RGB")
+    thumb.thumbnail((512, 512), Image.LANCZOS)
+    thumb.save(buf, "JPEG", quality=80)
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    try:
+        rsp = MultiModalConversation.call(
+            model=model,
+            api_key=api_key,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"image": f"data:image/jpeg;base64,{b64}"},
+                    {"text": (
+                        "用不超过20字描述这张图片的色调和风格，"
+                        "例如：暖色调、低对比度、胶片质感。"
+                        "只输出风格描述，不要其他内容。"
+                    )},
+                ],
+            }],
+        )
+        if rsp.status_code != 200:
+            return ""
+        choices = rsp.output.choices
+        if not choices:
+            return ""
+        choice = choices[0]
+        try:
+            content = choice["message"]["content"]
+        except TypeError:
+            content = choice.message.content
+        if isinstance(content, list):
+            return "\n".join(
+                item.get("text", "") for item in content
+                if isinstance(item, dict) and item.get("text")
+            ).strip()
+        return str(content).strip()
+    except Exception:
+        return ""
 
-    Args:
-        image_path: Path to uploaded image (under uploads/).
-        instruction: User's Chinese natural-language instruction.
 
-    Returns:
-        Edited PIL Image.
-    """
+def edit_image(
+    img: Image.Image,
+    instruction: str,
+    reference_img: Optional[Image.Image] = None,
+) -> Image.Image:
     api_key = os.getenv("DASHSCOPE_API_KEY")
     if not api_key:
         raise ValueError(
@@ -76,24 +90,30 @@ def edit_image(image_path: Path, instruction: str) -> Image.Image:
             "DASHSCOPE_API_KEY=your_key_here"
         )
 
-    file_path = Path(image_path)
-    if not file_path.exists():
-        raise FileNotFoundError(f"图片文件不存在: {file_path}")
+    size = _pick_size(img)
+    src_b64 = _encode_image(img)
 
-    with Image.open(file_path) as img:
-        size = _pick_size(img)
+    if reference_img is not None:
+        style_desc = _describe_reference_style(reference_img, api_key)
+        ref_b64 = _encode_image(reference_img)
+        style_hint = f"（{style_desc}）" if style_desc else ""
+        text = (
+            f"图1是原图，图2是风格参考。"
+            f"{_STYLE_GUIDE}{instruction}，"
+            f"参考图2的色调和风格{style_hint}"
+        )
+        content = [
+            {"text": text},
+            {"image": src_b64},
+            {"image": ref_b64},
+        ]
+    else:
+        content = [
+            {"text": f"{_STYLE_GUIDE}{instruction}"},
+            {"image": src_b64},
+        ]
 
-    image_ref = _image_ref(file_path)
-    prompt = f"{_STYLE_GUIDE}{instruction}"
-
-    message = Message(
-        role="user",
-        content=[
-            {"text": prompt},
-            {"image": image_ref},
-        ],
-    )
-
+    message = Message(role="user", content=content)
     rsp = ImageGeneration.call(
         model="wan2.7-image-pro",
         api_key=api_key,
@@ -104,17 +124,12 @@ def edit_image(image_path: Path, instruction: str) -> Image.Image:
     )
 
     if rsp.status_code != 200:
-        raise RuntimeError(
-            f"DashScope 调用失败 [{rsp.code}]: {rsp.message}\n"
-            "若提示图片无法访问，请在 .env 中设置 USE_BASE64=true"
-        )
+        raise RuntimeError(f"DashScope 调用失败 [{rsp.code}]: {rsp.message}")
 
-    # Parse response: rsp.output.choices[i]["message"]["content"][j]
     for choice in rsp.output.choices:
         for item in choice["message"]["content"]:
             if item.get("type") == "image":
-                result_url = item["image"]
-                with urllib.request.urlopen(result_url, timeout=120) as resp:
+                with urllib.request.urlopen(item["image"], timeout=120) as resp:
                     data = resp.read()
                 return Image.open(io.BytesIO(data)).copy()
 

@@ -42,8 +42,13 @@ def _file_uri(file_path: Path) -> str:
 
 def _image_ref(file_path: Path) -> str:
     if os.getenv("USE_BASE64", "").lower() in ("1", "true"):
-        from app.core.image_gen import _encode_file
-        return _encode_file(file_path)
+        import base64, mimetypes
+        mime, _ = mimetypes.guess_type(str(file_path))
+        if not mime or not mime.startswith("image/"):
+            mime = "image/jpeg"
+        with open(file_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+        return f"data:{mime};base64,{b64}"
     return _file_uri(file_path)
 
 

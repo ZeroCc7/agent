@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Photo Studio</title>
-  <link rel="stylesheet" href="/static/style.css?v=9">
+  <link rel="stylesheet" href="/static/style.css?v=10">
 </head>
 <body>
   <header>
@@ -133,11 +133,17 @@
                   </div>
                   <button class="btn-ghost small" onclick="document.getElementById('ref-input').click()">换图</button>
                 </div>
-                <div class="cp-ref-actions">
+                <!-- 上传后立即显示，分析前 -->
+                <div id="ref-pending-actions" class="cp-ref-actions hidden">
+                  <button class="btn-primary" onclick="analyzeReferenceImage()">分析调整参数</button>
+                  <button class="btn-secondary" onclick="generateFromReferenceOnly()">AI 生图</button>
+                </div>
+                <!-- 分析完成后显示 -->
+                <div id="ref-analyzed-actions" class="cp-ref-actions hidden">
                   <button class="btn-primary" onclick="applyReferenceParams()">匹配调色</button>
                   <button class="btn-secondary" onclick="generateFromReference()">AI 生成效果图</button>
                 </div>
-                <button class="btn-ghost small w-full" onclick="compareStyle()" style="margin-top:6px">AI 比对微调</button>
+                <button id="ref-compare-btn" class="btn-ghost small w-full hidden" onclick="compareStyle()" style="margin-top:6px">AI 比对微调</button>
                 <div id="ref-compare-explanation" class="ref-compare-explanation hidden"></div>
                 <div class="cp-ref-footer">
                   <button class="btn-text" id="ref-save-btn" onclick="openSavePresetDialog()">保存为预设</button>
@@ -162,6 +168,11 @@
             </div>
             <div id="cp-agent-body" class="cp-body">
               <p class="cp-hint" id="agent-hint">多轮自动迭代，每轮 AI 评分，满意即停（最多 5 轮）</p>
+              <button id="analyzeBtn" class="btn-secondary w-full" style="margin-bottom:8px" onclick="analyzeForAgent()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M11 8v3l2 2"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                AI 分析图片，生成修图建议
+              </button>
+              <div id="agentSuggestions" class="agent-suggestions hidden"></div>
               <input id="agentInstruction" type="text" placeholder="修图指令，如：让照片更暖更通透">
               <button id="agentStartBtn" class="btn-primary w-full" style="margin-top:8px" onclick="startAgentEdit()">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -175,10 +186,31 @@
                 <div class="agent-result-body">
                   <div class="agent-result-grid">
                     <div class="result-col"><p class="result-col-label">原图</p><img id="agentOriginalPreview" alt="原图"></div>
-                    <div class="result-col"><p class="result-col-label">最佳结果</p><img id="agentBestPreview" alt="最佳结果"></div>
+                    <div class="result-col">
+                      <p class="result-col-label" id="agentBestLabel">最佳结果</p>
+                      <img id="agentBestPreview" alt="最佳结果">
+                    </div>
                   </div>
                   <p id="agentBestInfo" class="agent-result-info"></p>
                   <button class="btn-primary small" onclick="applyAgentResult()">应用此结果</button>
+                  <!-- 继续优化操作区 -->
+                  <div class="agent-post-actions" id="agentPostActions">
+                    <div class="post-actions-divider">继续优化</div>
+                    <div class="post-actions-row">
+                      <div class="post-action-item">
+                        <label class="post-action-label">继续调色</label>
+                        <div class="post-action-ctrl">
+                          <input type="number" id="continueRounds" min="1" max="10" value="3" class="rounds-input">
+                          <span class="post-action-unit">轮</span>
+                          <button class="btn-secondary small" id="continueBtn" onclick="continueAgentEdit()">继续</button>
+                        </div>
+                      </div>
+                      <button class="btn-secondary small" id="aiGenBtn" onclick="generateAiImage()">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                        AI 生图
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -456,11 +488,12 @@
     </div>
   </div>
 
-  <script src="/static/curve_editor.js?v=9"></script>
-  <script src="/static/app.js?v=9"></script>
+  <script src="/static/curve_editor.js?v=10"></script>
+  <script src="/static/app.js?v=10"></script>
   <script>
 'use strict';
 let agentBestImageUrl = null;
+let currentSessionId = null;
 
 function startAgentEdit() {
   let instruction = document.getElementById('agentInstruction').value.trim();
@@ -485,6 +518,7 @@ function startAgentEdit() {
   startBtn.disabled = true;
   startBtn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px"></div>修图中…';
   agentBestImageUrl = null;
+  currentSessionId = null;
 
   const body = { filename: currentFilename, instruction };
   if (typeof _referenceFilename !== 'undefined' && _referenceFilename) {
@@ -496,21 +530,7 @@ function startAgentEdit() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   }).then(async res => {
-    const reader  = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const parts = buffer.split('\n\n');
-      buffer = parts.pop();
-      for (const part of parts) {
-        if (part.startsWith('data: ')) {
-          try { handleAgentEvent(JSON.parse(part.slice(6))); } catch(e) {}
-        }
-      }
-    }
+    await _consumeSSE(res, handleAgentEvent);
   }).catch(err => {
     alert('Agent 修图失败: ' + err.message);
   }).finally(() => {
@@ -519,13 +539,43 @@ function startAgentEdit() {
   });
 }
 
+async function _consumeSSE(res, handler) {
+  const reader  = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop();
+    for (const part of parts) {
+      if (part.startsWith('data: ')) {
+        try { handler(JSON.parse(part.slice(6))); } catch(e) {}
+      }
+    }
+  }
+}
+
 function handleAgentEvent(evt) {
-  if (evt.type === 'progress' && evt.status === 'editing') {
+  if (evt.type === 'progress' && evt.status === 'color_transfer') {
+    _addRoundCard(0, '程序化颜色迁移中…', null, null, null, '颜色迁移');
+  } else if (evt.type === 'progress' && evt.status === 'color_transfer_warn') {
+    _updateRoundStatus(0, '颜色迁移已跳过');
+  } else if (evt.type === 'progress' && evt.status === 'editing') {
+    if (evt.round === 1) _updateRoundStatus(0, '颜色迁移完成 ✓');
     _addRoundCard(evt.round, '生成参数…', null, null, null);
   } else if (evt.type === 'progress' && evt.status === 'reviewing') {
     _updateRoundStatus(evt.round, '审查评分中…');
   } else if (evt.type === 'progress' && evt.status === 'done_round') {
     _updateRoundCard(evt.round, evt.explanation, evt.score, evt.image_url, evt.suggestions, evt.is_satisfied);
+  } else if (evt.type === 'progress' && evt.status === 'ai_generating') {
+    if (!document.getElementById('round-card-ai')) {
+      _addRoundCard('ai', 'AI 生图中…', null, null, null, 'AI 生图');
+    }
+    const elapsed = evt.elapsed || 0;
+    const label = elapsed > 0 ? `AI 生图中… 已等待 ${elapsed} 秒` : 'AI 生图中…';
+    _updateRoundStatus('ai', label);
   } else if (evt.type === 'error') {
     const roundsEl = document.getElementById('agentRounds');
     const errDiv = document.createElement('div');
@@ -534,23 +584,124 @@ function handleAgentEvent(evt) {
     roundsEl.appendChild(errDiv);
   } else if (evt.type === 'done') {
     agentBestImageUrl = evt.image_url;
+    if (evt.session_id) currentSessionId = evt.session_id;
     const result = document.getElementById('agentResult');
     result.classList.remove('hidden');
     document.getElementById('agentOriginalPreview').src = '/uploads/' + currentFilename;
     document.getElementById('agentBestPreview').src = evt.image_url;
-    document.getElementById('agentBestInfo').textContent =
-      '最佳结果：第 ' + evt.best_round + ' 轮 · 综合评分 ' + evt.final_score.toFixed(1) + ' / 10';
+    if (evt.used_ai_gen) {
+      document.getElementById('agentBestLabel').textContent = 'AI 生图结果';
+      document.getElementById('agentBestInfo').textContent = 'wan2.7 AI 生成';
+      _updateRoundStatus('ai', 'AI 生图完成 ✓');
+    } else {
+      document.getElementById('agentBestLabel').textContent = '最佳结果';
+      document.getElementById('agentBestInfo').textContent =
+        '最佳结果：第 ' + evt.best_round + ' 轮 · 综合评分 ' + evt.final_score.toFixed(1) + ' / 10';
+    }
   }
 }
 
-function _addRoundCard(round, statusText, score, imageUrl, suggestions) {
+async function analyzeForAgent() {
+  if (!currentFilename) { alert('请先上传图片'); return; }
+  const btn = document.getElementById('analyzeBtn');
+  const box = document.getElementById('agentSuggestions');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:13px;height:13px;border-width:2px;margin-right:6px"></div>分析中…';
+  box.classList.add('hidden');
+  box.innerHTML = '';
+
+  try {
+    const res  = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: currentFilename }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || '分析失败');
+
+    const suggestions = data.suggestions || [];
+    if (!suggestions.length) { alert('暂无建议，请稍后再试'); return; }
+
+    suggestions.forEach(s => {
+      const card = document.createElement('div');
+      card.className = 'suggestion-card';
+      card.innerHTML =
+        '<div class="suggestion-style">' + s.style + '</div>' +
+        '<div class="suggestion-desc">' + s.description + '</div>' +
+        '<button class="btn-ghost small suggestion-use-btn">使用此方案</button>';
+      card.querySelector('.suggestion-use-btn').onclick = () => {
+        document.getElementById('agentInstruction').value = s.prompt;
+        box.querySelectorAll('.suggestion-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+      };
+      box.appendChild(card);
+    });
+
+    box.classList.remove('hidden');
+  } catch (e) {
+    alert('AI 分析失败：' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M11 8v3l2 2"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>AI 分析图片，生成修图建议';
+  }
+}
+
+function continueAgentEdit() {
+  if (!currentSessionId) { alert('请先完成一次 Agent 修图'); return; }
+  const extra = parseInt(document.getElementById('continueRounds').value) || 3;
+  const continueBtn = document.getElementById('continueBtn');
+  const aiGenBtn    = document.getElementById('aiGenBtn');
+  continueBtn.disabled = true;
+  aiGenBtn.disabled    = true;
+  continueBtn.textContent = '调色中…';
+
+  fetch('/api/agent/continue', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: currentSessionId, extra_rounds: extra }),
+  }).then(async res => {
+    await _consumeSSE(res, handleAgentEvent);
+  }).catch(err => {
+    alert('继续调色失败: ' + err.message);
+  }).finally(() => {
+    continueBtn.disabled = false;
+    aiGenBtn.disabled    = false;
+    continueBtn.textContent = '继续';
+  });
+}
+
+function generateAiImage() {
+  if (!currentSessionId) { alert('请先完成一次 Agent 修图'); return; }
+  const continueBtn = document.getElementById('continueBtn');
+  const aiGenBtn    = document.getElementById('aiGenBtn');
+  continueBtn.disabled = true;
+  aiGenBtn.disabled    = true;
+  aiGenBtn.innerHTML = '<div class="spinner" style="width:12px;height:12px;border-width:2px;margin-right:4px"></div>生成中…';
+
+  fetch('/api/agent/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: currentSessionId }),
+  }).then(async res => {
+    await _consumeSSE(res, handleAgentEvent);
+  }).catch(err => {
+    alert('AI 生图失败: ' + err.message);
+  }).finally(() => {
+    continueBtn.disabled = false;
+    aiGenBtn.disabled    = false;
+    aiGenBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>AI 生图';
+  });
+}
+
+function _addRoundCard(round, statusText, score, imageUrl, suggestions, label) {
   if (document.getElementById('round-card-' + round)) return;
+  const roundLabel = label || ('第 ' + round + ' 轮');
   const div = document.createElement('div');
   div.id = 'round-card-' + round;
-  div.className = 'round-card';
+  div.className = 'round-card' + (round === 0 ? ' round-card-ct' : '');
   div.innerHTML =
     '<div class="round-header">' +
-      '<span class="round-num">第 ' + round + ' 轮</span>' +
+      '<span class="round-num">' + roundLabel + '</span>' +
       '<span class="round-status" id="round-status-' + round + '">' + statusText + '</span>' +
       '<span class="round-score" id="round-score-' + round + '"></span>' +
     '</div>' +
@@ -575,7 +726,14 @@ function _updateRoundCard(round, explanation, score, imageUrl, suggestions, sati
 
   const body = document.getElementById('round-body-' + round);
   if (!body) return;
-  let html = imageUrl ? '<img class="round-thumb" src="' + imageUrl + '" alt="第' + round + '轮">' : '';
+  let html = '';
+  if (imageUrl) {
+    const safeUrl = imageUrl.replace(/'/g, "\\'");
+    html += '<div class="round-thumb-wrap">' +
+      '<img class="round-thumb" src="' + imageUrl + '" alt="第' + round + '轮">' +
+      '<button class="btn-ghost small round-apply-btn" onclick="applyAgentResult(\'' + safeUrl + '\')">应用</button>' +
+      '</div>';
+  }
   if (suggestions && Object.keys(suggestions).length) {
     html += '<div class="round-suggestions">';
     for (const v of Object.values(suggestions)) {
@@ -587,10 +745,27 @@ function _updateRoundCard(round, explanation, score, imageUrl, suggestions, sati
   body.classList.remove('hidden');
 }
 
-function applyAgentResult() {
-  if (!agentBestImageUrl) return;
+function applyAgentResult(url) {
+  const target = url || agentBestImageUrl;
+  if (!target) return;
   const img = document.getElementById('result-img');
-  if (img) { img.src = agentBestImageUrl; img.style.display = 'block'; }
+  img.src = target + '?t=' + Date.now();
+  img.classList.remove('hidden');
+  img.onload = function() {
+    document.getElementById('result-placeholder').classList.add('hidden');
+    document.querySelector('.result-wrap').classList.add('has-result');
+    if (typeof initCompare === 'function') initCompare();
+  };
+  const dlBtn = document.getElementById('download-btn');
+  dlBtn.classList.remove('hidden');
+  dlBtn.onclick = function() {
+    const a = document.createElement('a');
+    a.href = target;
+    a.download = 'agent_result.jpg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
 }
   </script>
   <script>

@@ -7,34 +7,88 @@ from PIL import Image, ImageEnhance
 from app.types.models import EditParams, ExtendedEditParams
 
 
+# ── sRGB ↔ linear light transfer functions ───────────────────────────────────
+
+def _srgb_to_linear(arr: np.ndarray) -> np.ndarray:
+    """uint8 sRGB array (H×W×3) → linear float [0, 1]."""
+    f = arr / 255.0
+    return np.where(f <= 0.04045, f / 12.92, ((f + 0.055) / 1.055) ** 2.4)
+
+
+def _linear_to_srgb(linear: np.ndarray) -> np.ndarray:
+    """Linear float [0, 1] → uint8 sRGB array."""
+    srgb = np.where(
+        linear <= 0.0031308,
+        linear * 12.92,
+        1.055 * np.power(np.maximum(linear, 0.0), 1.0 / 2.4) - 0.055,
+    )
+    return np.clip(srgb * 255.0, 0, 255).astype(np.uint8)
+
+
+def _sigmoid_contrast(arr: np.ndarray, strength: float) -> np.ndarray:
+    """S-curve contrast in linear light. strength ∈ [-0.5, 1.0], 0 = identity."""
+    k = strength * 10.0
+    g = 1.0 / (1.0 + np.exp(-k * (arr - 0.5)))
+    g0 = 1.0 / (1.0 + np.exp(k * 0.5))
+    g1 = 1.0 / (1.0 + np.exp(-k * 0.5))
+    return np.clip((g - g0) / (g1 - g0), 0.0, 1.0)
+
+
+def _adjust_color_temp_linear(linear: np.ndarray, temp: int) -> np.ndarray:
+    """Color temperature shift in linear light space."""
+    factor = temp / 100.0
+    result = linear.copy()
+    if factor > 0:
+        result[:, :, 0] = np.clip(linear[:, :, 0] * (1.0 + 0.15 * factor), 0.0, 1.0)
+        result[:, :, 2] = np.clip(linear[:, :, 2] * (1.0 - 0.10 * factor), 0.0, 1.0)
+    else:
+        factor = -factor
+        result[:, :, 2] = np.clip(linear[:, :, 2] * (1.0 + 0.15 * factor), 0.0, 1.0)
+        result[:, :, 0] = np.clip(linear[:, :, 0] * (1.0 - 0.10 * factor), 0.0, 1.0)
+    return result
+
+
+def _adjust_saturation_lab(arr: np.ndarray, factor: float) -> np.ndarray:
+    """Saturation via LAB a/b scaling — hue-preserving, no color drift."""
+    img_u8 = np.clip(arr, 0, 255).astype(np.uint8)
+    lab = cv2.cvtColor(img_u8, cv2.COLOR_RGB2LAB).astype(np.float32)
+    lab[:, :, 1] = np.clip((lab[:, :, 1] - 128.0) * factor + 128.0, 0, 255)
+    lab[:, :, 2] = np.clip((lab[:, :, 2] - 128.0) * factor + 128.0, 0, 255)
+    return cv2.cvtColor(np.clip(lab, 0, 255).astype(np.uint8), cv2.COLOR_LAB2RGB).astype(np.float32)
+
+
+# ── Public API ────────────────────────────────────────────────────────────────
+
 def apply_basic_edits(img: Image.Image, params: EditParams) -> Image.Image:
     img = img.convert("RGB")
+    arr = np.array(img, dtype=np.float32)
+
+    # Decode to linear light for photometric operations
+    linear = _srgb_to_linear(arr)
 
     if params.brightness != 1.0:
-        img = ImageEnhance.Brightness(img).enhance(params.brightness)
+        linear = np.clip(linear * params.brightness, 0.0, 1.0)
+
     if params.contrast != 1.0:
-        img = ImageEnhance.Contrast(img).enhance(params.contrast)
+        # contrast param range 0.5–2.0 → strength range -0.5–1.0
+        linear = _sigmoid_contrast(linear, params.contrast - 1.0)
+
+    if params.color_temp != 0:
+        linear = _adjust_color_temp_linear(linear, params.color_temp)
+
+    # Re-encode to sRGB before perceptual-space operations
+    arr = _linear_to_srgb(linear).astype(np.float32)
+
     if params.saturation != 1.0:
-        img = ImageEnhance.Color(img).enhance(params.saturation)
+        arr = _adjust_saturation_lab(arr, params.saturation)
+
+    img = Image.fromarray(arr.astype(np.uint8))
+
+    # Sharpness is spatial filtering — fine in any encoding
     if params.sharpness != 1.0:
         img = ImageEnhance.Sharpness(img).enhance(params.sharpness)
-    if params.color_temp != 0:
-        img = _adjust_color_temp(img, params.color_temp)
 
     return img
-
-
-def _adjust_color_temp(img: Image.Image, temp: int) -> Image.Image:
-    arr = np.array(img, dtype=np.float32)
-    factor = temp / 100.0
-    if factor > 0:  # warm: boost red, reduce blue
-        arr[:, :, 0] = np.clip(arr[:, :, 0] * (1 + 0.15 * factor), 0, 255)
-        arr[:, :, 2] = np.clip(arr[:, :, 2] * (1 - 0.10 * factor), 0, 255)
-    else:  # cool: boost blue, reduce red
-        factor = -factor
-        arr[:, :, 2] = np.clip(arr[:, :, 2] * (1 + 0.15 * factor), 0, 255)
-        arr[:, :, 0] = np.clip(arr[:, :, 0] * (1 - 0.10 * factor), 0, 255)
-    return Image.fromarray(arr.astype(np.uint8))
 
 
 def apply_extended_edits(img: Image.Image, params: ExtendedEditParams) -> Image.Image:
@@ -70,6 +124,8 @@ def apply_extended_edits(img: Image.Image, params: ExtendedEditParams) -> Image.
 
     return img
 
+
+# ── Extended edit helpers ─────────────────────────────────────────────────────
 
 def _is_identity_extended(params: ExtendedEditParams) -> bool:
     return all([

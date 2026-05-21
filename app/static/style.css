@@ -848,6 +848,7 @@ textarea { resize: vertical; line-height: 1.5; }
   margin-bottom: 8px;
 }
 .round-card:last-child { margin-bottom: 0; }
+.round-card-ct { border-color: var(--accent); opacity: 0.75; }
 .round-header {
   display: flex;
   align-items: center;
@@ -912,6 +913,108 @@ textarea { resize: vertical; line-height: 1.5; }
   display: block;
 }
 .agent-result-info { font-size: 12px; color: var(--text-2); margin-bottom: 10px; }
+
+/* ── Agent post-actions ──────────────────────────────────────────── */
+.agent-post-actions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-dim);
+}
+/* ── Agent AI 分析建议卡片 ───────────────────────────────────────── */
+.agent-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.suggestion-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  cursor: default;
+  transition: border-color 0.15s;
+}
+.suggestion-card.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.suggestion-style {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+.suggestion-desc {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.suggestion-use-btn {
+  width: 100%;
+  text-align: center;
+}
+
+.round-thumb-wrap {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+.round-apply-btn {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  text-align: center;
+}
+
+.post-actions-divider {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  margin-bottom: 10px;
+  position: relative;
+}
+.post-actions-divider::before,
+.post-actions-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 30%;
+  height: 1px;
+  background: var(--border-dim);
+}
+.post-actions-divider::before { left: 0; }
+.post-actions-divider::after  { right: 0; }
+.post-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.post-action-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--r-sm);
+  padding: 6px 8px;
+}
+.post-action-label { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+.post-action-ctrl { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.rounds-input {
+  width: 44px;
+  padding: 3px 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 12px;
+  text-align: center;
+}
+.rounds-input:focus { outline: none; border-color: var(--accent); }
+.post-action-unit { font-size: 12px; color: var(--text-3); }
 
 /* ── History tab ─────────────────────────────────────────────────── */
 .history-header {

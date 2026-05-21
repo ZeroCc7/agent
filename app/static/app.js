@@ -653,8 +653,17 @@ async function handleReferenceUpload(file) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || '上传失败');
     _referenceFilename = data.filename;
+    _referenceParams   = null;
+    _referenceCurves   = null;
     document.getElementById('ref-thumb').src = `/uploads/${data.filename}?t=${Date.now()}`;
-    await analyzeReferenceImage();
+    document.getElementById('ref-style-name').textContent = '';
+    document.getElementById('ref-explanation').textContent = '';
+    document.getElementById('ref-result').classList.remove('hidden');
+    document.getElementById('ref-upload-area').classList.add('hidden');
+    document.getElementById('ref-pending-actions').classList.remove('hidden');
+    document.getElementById('ref-analyzed-actions').classList.add('hidden');
+    document.getElementById('ref-compare-btn').classList.add('hidden');
+    _updateAgentHint();
   } catch (err) {
     alert('上传失败：' + err.message);
   } finally {
@@ -680,8 +689,11 @@ async function analyzeReferenceImage() {
     document.getElementById('ref-explanation').textContent = data.explanation;
     document.getElementById('ref-preset-name').value = data.style_name;
     document.getElementById('ref-result').classList.remove('hidden');
-    document.getElementById('ref-save-dialog').classList.add('hidden');
     document.getElementById('ref-upload-area').classList.add('hidden');
+    document.getElementById('ref-pending-actions').classList.add('hidden');
+    document.getElementById('ref-analyzed-actions').classList.remove('hidden');
+    document.getElementById('ref-compare-btn').classList.remove('hidden');
+    document.getElementById('ref-save-dialog').classList.add('hidden');
     const saveBtn = document.getElementById('ref-save-btn');
     if (saveBtn) { saveBtn.textContent = '保存为预设'; saveBtn.disabled = false; }
     // Pre-fill agent instruction with reference style if field is empty
@@ -721,18 +733,43 @@ function applyReferenceParams() {
   applyManualEdit();
 }
 
-async function generateFromReference() {
-  if (!_referenceParams) return;
+async function generateFromReferenceOnly() {
   if (!currentFilename) { alert('请先上传图片'); return; }
-  const instruction = document.getElementById('ref-explanation').textContent;
-  if (!instruction) return;
+  if (!_referenceFilename) return;
+  showLoading('AI 生图中，约需 30-60 秒...');
+  try {
+    const res = await fetch('/api/edit/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: currentFilename,
+        instruction: '根据参考图的色调和风格美化这张照片',
+        reference_filename: _referenceFilename,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'AI 生图失败');
+    showResult(data.result_filename);
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    hideLoading();
+  }
+}
 
+async function generateFromReference() {
+  if (!currentFilename) { alert('请先上传图片'); return; }
+  const instruction = document.getElementById('ref-explanation').textContent || '根据参考图风格美化这张照片';
   showLoading('AI 生成效果图中，约需 20-40 秒...');
   try {
     const res = await fetch('/api/edit/ai', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: currentFilename, instruction }),
+      body: JSON.stringify({
+        filename: currentFilename,
+        instruction,
+        reference_filename: _referenceFilename,
+      }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'AI 处理失败');

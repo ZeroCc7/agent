@@ -2,7 +2,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from PIL import Image
 
@@ -57,6 +57,28 @@ class SessionStore:
 
     def save_reference(self, session_id: str, img: Image.Image) -> None:
         img.convert("RGB").save(self.base_dir / session_id / "ref.jpg", "JPEG", quality=92)
+
+    def load_original_image(self, session_id: str) -> Image.Image:
+        return Image.open(self.base_dir / session_id / "original.jpg").convert("RGB")
+
+    def load_reference_image(self, session_id: str) -> Optional[Image.Image]:
+        path = self.base_dir / session_id / "ref.jpg"
+        if not path.exists():
+            return None
+        return Image.open(path).convert("RGB")
+
+    def load_best_image(self, session_id: str) -> Image.Image:
+        session = self.load_session(session_id)
+        if not session.iterations or session.best_round == 0:
+            return self.load_original_image(session_id)
+        filename = session.iterations[session.best_round - 1].image_filename
+        return Image.open(self.base_dir / session_id / filename).convert("RGB")
+
+    def save_ai_gen_image(self, session_id: str, img: Image.Image) -> str:
+        ts = datetime.now().strftime("%H%M%S")
+        filename = f"ai_gen_{ts}.jpg"
+        img.convert("RGB").save(self.base_dir / session_id / filename, "JPEG", quality=92, optimize=True)
+        return filename
 
     def _write(self, session: AgentSession) -> None:
         path = self.base_dir / session.session_id / "history.json"

@@ -158,6 +158,7 @@ def run_editing_agent(
     reference_img: Optional[Image.Image] = None,
     previous_output: Optional[AgentEditOutput] = None,
     review_score: Optional[ReviewScore] = None,
+    previous_edited_img: Optional[Image.Image] = None,
 ) -> AgentEditOutput:
     api_key = os.getenv("DASHSCOPE_API_KEY")
     if not api_key:
@@ -170,6 +171,12 @@ def run_editing_agent(
         {"image": _img_data_uri(original_img)},
         {"text": "原始图片"},
     ]
+
+    if not is_first and previous_edited_img is not None:
+        user_content += [
+            {"image": _img_data_uri(previous_edited_img)},
+            {"text": "上一轮修图结果（请观察其问题，在此基础上改进）"},
+        ]
 
     if reference_img is not None:
         user_content += [

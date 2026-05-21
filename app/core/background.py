@@ -7,7 +7,7 @@ def apply_background(img: Image.Image, params: BackgroundParams) -> Image.Image:
     if params.action == "none":
         return img
     if params.action == "blur":
-        return _blur_background(img, params.blur_radius)
+        return _blur_background(img, max(params.blur_radius, 1))
     if params.action == "remove":
         return _remove_background(img)
     return img

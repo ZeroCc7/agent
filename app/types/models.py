@@ -19,7 +19,7 @@ class PortraitParams(BaseModel):
 
 class BackgroundParams(BaseModel):
     action: Literal["none", "blur", "remove"] = "none"
-    blur_radius: int = Field(15, ge=1, le=50)
+    blur_radius: int = Field(15, ge=0, le=50)
 
 
 class ExtendedEditParams(BaseModel):
@@ -56,6 +56,7 @@ class ManualEditRequest(BaseModel):
 class AIEditRequest(BaseModel):
     filename: str
     instruction: str
+    reference_filename: Optional[str] = None
 
 
 class EditResponse(BaseModel):
@@ -252,3 +253,12 @@ class AgentEditRequest(BaseModel):
     filename: str
     instruction: str
     reference_filename: Optional[str] = None
+
+
+class AgentContinueRequest(BaseModel):
+    session_id: str
+    extra_rounds: int = Field(3, ge=1, le=10)
+
+
+class AgentGenerateRequest(BaseModel):
+    session_id: str

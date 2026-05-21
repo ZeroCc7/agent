@@ -124,8 +124,13 @@ async def ai_edit(request: AIEditRequest):
         raise HTTPException(400, "请描述你想要的效果")
 
     try:
-        # DashScope call is blocking — offload to thread pool
-        result = await asyncio.to_thread(edit_image, src, request.instruction)
+        img = Image.open(src).convert("RGB")
+        ref_img = None
+        if request.reference_filename:
+            ref_path = UPLOAD_DIR / request.reference_filename
+            if ref_path.exists():
+                ref_img = Image.open(ref_path).convert("RGB")
+        result = await asyncio.to_thread(edit_image, img, request.instruction, ref_img)
 
         out_name = f"ai_{uuid.uuid4().hex[:10]}"
         if result.mode == "RGBA":
